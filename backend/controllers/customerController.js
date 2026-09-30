@@ -5,10 +5,12 @@ const getCustomers = async (req, res) => {
         const [customers] = await db.query(`
             SELECT
                 id,
+                customer_code,
                 name,
                 phone,
                 address,
                 credit_limit,
+                status,
                 created_at
             FROM customers
             ORDER BY id ASC
@@ -36,10 +38,12 @@ const getCustomerById = async (req, res) => {
         const [customers] = await db.query(`
             SELECT
                 id,
+                customer_code,
                 name,
                 phone,
                 address,
                 credit_limit,
+                status,
                 created_at
             FROM customers
             WHERE id = ?
