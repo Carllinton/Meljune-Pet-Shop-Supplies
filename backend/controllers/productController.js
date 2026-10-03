@@ -155,6 +155,8 @@ const searchProducts = async (req, res) => {
 // CREATE PRODUCT
 // =============================================
 const createProduct = async (req, res) => {
+    const connection = await db.getConnection();
+
     try {
         const {
             product_code,
@@ -173,48 +175,29 @@ const createProduct = async (req, res) => {
             status
         } = req.body;
 
-
-        // -----------------------------
-        // VALIDATION
-        // -----------------------------
-        if (!product_code || !product_code.trim()) {
+        // Required fields
+        if (!product_code || !name || !category_id || !unit || price === undefined) {
             return res.status(400).json({
                 success: false,
-                message: "Product code is required"
+                message: "Product code, name, category, unit, and price are required"
             });
         }
 
-        if (!name || !name.trim()) {
+        const initialQuantity = Number(quantity) || 0;
+
+        // Prevent negative initial stock
+        if (initialQuantity < 0) {
             return res.status(400).json({
                 success: false,
-                message: "Product name is required"
+                message: "Quantity cannot be negative"
             });
         }
 
-        if (!category_id) {
-            return res.status(400).json({
-                success: false,
-                message: "Category is required"
-            });
-        }
-
-        if (price === undefined || price === null || price === "") {
-            return res.status(400).json({
-                success: false,
-                message: "Price is required"
-            });
-        }
-
-
-        // -----------------------------
-        // CHECK DUPLICATE PRODUCT CODE
-        // -----------------------------
-        const [existingProduct] = await db.query(`
-            SELECT id
-            FROM products
-            WHERE product_code = ?
-        `, [product_code.trim()]);
-
+        // Check duplicate product code
+        const [existingProduct] = await connection.query(
+            `SELECT id FROM products WHERE product_code = ?`,
+            [product_code]
+        );
 
         if (existingProduct.length > 0) {
             return res.status(409).json({
@@ -223,16 +206,11 @@ const createProduct = async (req, res) => {
             });
         }
 
-
-        // -----------------------------
-        // CHECK CATEGORY
-        // -----------------------------
-        const [category] = await db.query(`
-            SELECT id
-            FROM categories
-            WHERE id = ?
-        `, [category_id]);
-
+        // Check category
+        const [category] = await connection.query(
+            `SELECT id FROM categories WHERE id = ?`,
+            [category_id]
+        );
 
         if (category.length === 0) {
             return res.status(400).json({
@@ -241,18 +219,12 @@ const createProduct = async (req, res) => {
             });
         }
 
-
-        // -----------------------------
-        // CHECK SUPPLIER
-        // -----------------------------
-        if (supplier_id !== undefined && supplier_id !== null && supplier_id !== "") {
-
-            const [supplier] = await db.query(`
-                SELECT id
-                FROM suppliers
-                WHERE id = ?
-            `, [supplier_id]);
-
+        // Check supplier if provided
+        if (supplier_id) {
+            const [supplier] = await connection.query(
+                `SELECT id FROM suppliers WHERE id = ?`,
+                [supplier_id]
+            );
 
             if (supplier.length === 0) {
                 return res.status(400).json({
@@ -262,12 +234,14 @@ const createProduct = async (req, res) => {
             }
         }
 
+        // Start transaction
+        await connection.beginTransaction();
 
-        // -----------------------------
-        // INSERT PRODUCT
-        // -----------------------------
-        const [result] = await db.query(`
-            INSERT INTO products (
+        // Create product
+        const [result] = await connection.query(
+            `
+            INSERT INTO products
+            (
                 product_code,
                 name,
                 category_id,
@@ -284,27 +258,55 @@ const createProduct = async (req, res) => {
                 status
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-            product_code.trim(),
-            name.trim(),
-            category_id,
-            brand || null,
-            quantity ?? 0,
-            unit || "pcs",
-            price,
-            cost_price ?? 0,
-            low_stock_threshold ?? 10,
-            expiration_date || null,
-            supplier_id || null,
-            image || null,
-            description || null,
-            status || "active"
-        ]);
+            `,
+            [
+                product_code,
+                name,
+                category_id,
+                brand || null,
+                initialQuantity,
+                unit,
+                price,
+                cost_price || 0,
+                low_stock_threshold || 0,
+                expiration_date || null,
+                supplier_id || null,
+                image || null,
+                description || null,
+                status || "active"
+            ]
+        );
 
+        // If initial stock was added, record it in stock_transactions
+        if (initialQuantity > 0) {
+            await connection.query(
+                `
+                INSERT INTO stock_transactions
+                (
+                    product_id,
+                    transaction_type,
+                    quantity,
+                    quantity_before,
+                    quantity_after,
+                    reason,
+                    admin_id
+                )
+                VALUES (?, 'stock_in', ?, ?, ?, ?, ?)
+                `,
+                [
+                    result.insertId,
+                    initialQuantity,
+                    0,
+                    initialQuantity,
+                    "Initial stock",
+                    1
+                ]
+            );
+        }
 
-        // -----------------------------
-        // RESPONSE
-        // -----------------------------
+        // Complete transaction
+        await connection.commit();
+
         res.status(201).json({
             success: true,
             message: "Product created successfully",
@@ -313,23 +315,19 @@ const createProduct = async (req, res) => {
             }
         });
 
-
     } catch (error) {
+        // Undo everything if something fails
+        await connection.rollback();
 
         console.error("Error creating product:", error);
-
-        // MySQL duplicate key protection
-        if (error.code === "ER_DUP_ENTRY") {
-            return res.status(409).json({
-                success: false,
-                message: "Product code already exists"
-            });
-        }
 
         res.status(500).json({
             success: false,
             message: "Failed to create product"
         });
+
+    } finally {
+        connection.release();
     }
 };
 
@@ -338,6 +336,8 @@ const createProduct = async (req, res) => {
 // UPDATE PRODUCT
 // =============================================
 const updateProduct = async (req, res) => {
+    const connection = await db.getConnection();
+
     try {
         const { id } = req.params;
 
@@ -362,8 +362,8 @@ const updateProduct = async (req, res) => {
         // -----------------------------
         // CHECK PRODUCT
         // -----------------------------
-        const [existingProduct] = await db.query(`
-            SELECT id
+        const [existingProduct] = await connection.query(`
+            SELECT id, quantity
             FROM products
             WHERE id = ?
         `, [id]);
@@ -410,9 +410,24 @@ const updateProduct = async (req, res) => {
 
 
         // -----------------------------
+        // VALIDATE QUANTITY
+        // -----------------------------
+        const newQuantity = Number(quantity ?? 0);
+
+        if (!Number.isInteger(newQuantity) || newQuantity < 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Quantity must be a non-negative whole number"
+            });
+        }
+
+        const oldQuantity = Number(existingProduct[0].quantity);
+
+
+        // -----------------------------
         // CHECK DUPLICATE PRODUCT CODE
         // -----------------------------
-        const [duplicateProduct] = await db.query(`
+        const [duplicateProduct] = await connection.query(`
             SELECT id
             FROM products
             WHERE product_code = ?
@@ -431,7 +446,7 @@ const updateProduct = async (req, res) => {
         // -----------------------------
         // CHECK CATEGORY
         // -----------------------------
-        const [category] = await db.query(`
+        const [category] = await connection.query(`
             SELECT id
             FROM categories
             WHERE id = ?
@@ -451,7 +466,7 @@ const updateProduct = async (req, res) => {
         // -----------------------------
         if (supplier_id !== undefined && supplier_id !== null && supplier_id !== "") {
 
-            const [supplier] = await db.query(`
+            const [supplier] = await connection.query(`
                 SELECT id
                 FROM suppliers
                 WHERE id = ?
@@ -468,9 +483,15 @@ const updateProduct = async (req, res) => {
 
 
         // -----------------------------
+        // START DATABASE TRANSACTION
+        // -----------------------------
+        await connection.beginTransaction();
+
+
+        // -----------------------------
         // UPDATE PRODUCT
         // -----------------------------
-        await db.query(`
+        await connection.query(`
             UPDATE products
             SET
                 product_code = ?,
@@ -493,7 +514,7 @@ const updateProduct = async (req, res) => {
             name.trim(),
             category_id,
             brand || null,
-            quantity ?? 0,
+            newQuantity,
             unit || "pcs",
             price,
             cost_price ?? 0,
@@ -507,6 +528,66 @@ const updateProduct = async (req, res) => {
         ]);
 
 
+        // -----------------------------
+        // CREATE STOCK TRANSACTION
+        // -----------------------------
+
+        if (newQuantity > oldQuantity) {
+
+            // Stock increased
+            await connection.query(`
+                INSERT INTO stock_transactions
+                (
+                    product_id,
+                    transaction_type,
+                    quantity,
+                    quantity_before,
+                    quantity_after,
+                    reason,
+                    admin_id
+                )
+                VALUES (?, 'stock_in', ?, ?, ?, ?, ?)
+            `, [
+                id,
+                newQuantity - oldQuantity,
+                oldQuantity,
+                newQuantity,
+                "Stock increased through product edit",
+                1
+            ]);
+
+        } else if (newQuantity < oldQuantity) {
+
+            // Stock decreased
+            await connection.query(`
+                INSERT INTO stock_transactions
+                (
+                    product_id,
+                    transaction_type,
+                    quantity,
+                    quantity_before,
+                    quantity_after,
+                    reason,
+                    admin_id
+                )
+                VALUES (?, 'stock_out', ?, ?, ?, ?, ?)
+            `, [
+                id,
+                oldQuantity - newQuantity,
+                oldQuantity,
+                newQuantity,
+                "Stock decreased through product edit",
+                1
+            ]);
+        }
+
+
+        // -----------------------------
+        // COMPLETE TRANSACTION
+        // -----------------------------
+        await connection.commit();
+
+
         res.json({
             success: true,
             message: "Product updated successfully"
@@ -514,6 +595,8 @@ const updateProduct = async (req, res) => {
 
 
     } catch (error) {
+
+        await connection.rollback();
 
         console.error("Error updating product:", error);
 
@@ -528,6 +611,9 @@ const updateProduct = async (req, res) => {
             success: false,
             message: "Failed to update product"
         });
+
+    } finally {
+        connection.release();
     }
 };
 

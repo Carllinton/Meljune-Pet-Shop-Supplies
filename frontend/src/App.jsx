@@ -6,10 +6,11 @@ import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
 import Categories from "./pages/Categories";
 import Suppliers from "./pages/Suppliers";
-import Customers from "./pages/Customers";
+import Inventory from "./pages/Inventory";
 import POS from "./pages/POS";
-import StockTransactions from "./pages/StockTransactions";
-import Sales from "./pages/Sales";
+import Credit from "./pages/Credit";
+import Reports from "./pages/Reports";
+import Settings from "./pages/Settings";
 
 function App() {
     return (
@@ -45,8 +46,8 @@ function App() {
                         />
 
                         <Route
-                            path="/customers"
-                            element={<Customers />}
+                            path="/inventory"
+                            element={<Inventory />}
                         />
 
                         <Route
@@ -55,13 +56,18 @@ function App() {
                         />
 
                         <Route
-                            path="/stock-transactions"
-                            element={<StockTransactions />}
+                            path="/credit"
+                            element={<Credit />}
                         />
 
                         <Route
-                            path="/sales"
-                            element={<Sales />}
+                            path="/reports"
+                            element={<Reports />}
+                        />
+
+                        <Route
+                            path="/settings"
+                            element={<Settings />}
                         />
                     </Routes>
                 </main>

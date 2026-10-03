@@ -1,532 +1,1069 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import Modal from "../components/Modal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import useDebounce from "../hooks/useDebounce";
-import { formatPeso, getErrorMessage, toDateInput } from "../utils/format";
+import {
+  formatPeso,
+  getErrorMessage,
+  toDateInput,
+} from "../utils/format";
 
 const EMPTY_FORM = {
-    product_code: "",
-    name: "",
-    category_id: "",
-    brand: "",
-    quantity: "0",
-    unit: "pcs",
-    price: "",
-    cost_price: "0",
-    low_stock_threshold: "10",
-    expiration_date: "",
-    supplier_id: "",
-    description: "",
-    status: "active",
+  product_code: "",
+  name: "",
+  category_id: "",
+  brand: "",
+  quantity: "0",
+  unit: "pcs",
+  price: "",
+  cost_price: "0",
+  low_stock_threshold: "10",
+  expiration_date: "",
+  supplier_id: "",
+  description: "",
+  status: "active",
 };
 
 function Products() {
-    const [products, setProducts] = useState([]);
-    const [categories, setCategories] = useState([]);
-    const [suppliers, setSuppliers] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
 
-    const [search, setSearch] = useState("");
-    const debouncedSearch = useDebounce(search, 300);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-    const [notice, setNotice] = useState("");
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
 
-    // Add / Edit modal
-    const [modalOpen, setModalOpen] = useState(false);
-    const [editingId, setEditingId] = useState(null);
-    // Kept so editing doesn't wipe the image the backend already has
-    const [existingImage, setExistingImage] = useState(null);
-    const [form, setForm] = useState(EMPTY_FORM);
-    const [formError, setFormError] = useState("");
-    const [saving, setSaving] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [stockFilter, setStockFilter] = useState("");
+  const [sortBy, setSortBy] = useState("date_added");
+  const [sortOrder, setSortOrder] = useState("desc");
 
-    // Delete confirmation
-    const [deleteTarget, setDeleteTarget] = useState(null);
-    const [deleting, setDeleting] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
 
-    // Bump this to force a reload (after save / delete)
-    const [reloadKey, setReloadKey] = useState(0);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
-    const reload = () => {
-        setLoading(true);
-        setReloadKey((k) => k + 1);
-    };
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
-    // Load products whenever the (debounced) search text changes or reload() is called.
-    // The `cancelled` flag drops responses from out-of-date requests (fast typing).
-    useEffect(() => {
-        let cancelled = false;
-        const query = debouncedSearch.trim();
-        const url = query
-            ? `/products/search?query=${encodeURIComponent(query)}`
-            : "/products";
+  const loadProducts = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-        api.get(url)
-            .then((response) => {
-                if (cancelled || !response.data.success) return;
-                setProducts(response.data.data);
-                setError("");
-            })
-            .catch((err) => {
-                if (cancelled) return;
-                console.error("Error loading products:", err);
-                setError(getErrorMessage(err, "Failed to load products."));
-            })
-            .finally(() => {
-                if (!cancelled) setLoading(false);
-            });
+      let response;
 
-        return () => {
-            cancelled = true;
-        };
-    }, [debouncedSearch, reloadKey]);
+      if (debouncedSearch.trim()) {
+        response = await api.get("/products/search", {
+          params: {
+            query: debouncedSearch.trim(),
+          },
+        });
+      } else {
+        response = await api.get("/products");
+      }
 
-    // Dropdown data for the form
-    useEffect(() => {
-        const loadLookups = async () => {
-            try {
-                const [cat, sup] = await Promise.all([
-                    api.get("/categories"),
-                    api.get("/suppliers"),
-                ]);
-                setCategories(cat.data.data || []);
-                setSuppliers(sup.data.data || []);
-            } catch (err) {
-                console.error("Error loading categories/suppliers:", err);
-            }
-        };
+      const data = response?.data?.data ?? response?.data ?? [];
 
-        loadLookups();
-    }, []);
+      setProducts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to load products:", err);
+      setError(getErrorMessage(err, "Failed to load products."));
+    } finally {
+      setLoading(false);
+    }
+  }, [debouncedSearch]);
 
-    // ---------- Modal helpers ----------
-    const closeModal = useCallback(() => {
-        if (!saving) setModalOpen(false);
-    }, [saving]);
+  const loadLookups = useCallback(async () => {
+    try {
+      const [categoryResponse, supplierResponse] = await Promise.all([
+        api.get("/categories"),
+        api.get("/suppliers"),
+      ]);
 
-    const openAdd = () => {
-        setEditingId(null);
-        setExistingImage(null);
-        setForm(EMPTY_FORM);
-        setFormError("");
-        setModalOpen(true);
-    };
+      const categoryData =
+        categoryResponse?.data?.data ?? categoryResponse?.data ?? [];
 
-    const openEdit = async (product) => {
-        setNotice("");
-        setError("");
+      const supplierData =
+        supplierResponse?.data?.data ?? supplierResponse?.data ?? [];
 
-        try {
-            // The list doesn't include category_id, so fetch the full row
-            const response = await api.get(`/products/${product.id}`);
-            const p = response.data.data;
+      setCategories(Array.isArray(categoryData) ? categoryData : []);
+      setSuppliers(Array.isArray(supplierData) ? supplierData : []);
+    } catch (err) {
+      console.error("Failed to load product lookups:", err);
+    }
+  }, []);
 
-            setEditingId(p.id);
-            setExistingImage(p.image || null);
-            setForm({
-                product_code: p.product_code ?? "",
-                name: p.name ?? "",
-                category_id: p.category_id ?? "",
-                brand: p.brand ?? "",
-                quantity: String(p.quantity ?? 0),
-                unit: p.unit ?? "pcs",
-                price: String(p.price ?? ""),
-                cost_price: String(p.cost_price ?? 0),
-                low_stock_threshold: String(p.low_stock_threshold ?? 10),
-                expiration_date: toDateInput(p.expiration_date),
-                supplier_id: p.supplier_id ?? "",
-                description: p.description ?? "",
-                status: p.status ?? "active",
-            });
-            setFormError("");
-            setModalOpen(true);
-        } catch (err) {
-            setError(getErrorMessage(err, "Failed to load product details."));
-        }
-    };
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
 
-    const updateField = (e) => {
-        const { name, value } = e.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
-    };
+  useEffect(() => {
+    loadLookups();
+  }, [loadLookups]);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setFormError("");
+  useEffect(() => {
+    if (!message) return;
 
-        // Quick client-side checks (backend validates again)
-        if (!form.product_code.trim()) return setFormError("Product code is required.");
-        if (!form.name.trim()) return setFormError("Product name is required.");
-        if (!form.category_id) return setFormError("Please choose a category.");
-        if (form.price === "" || Number(form.price) < 0)
-            return setFormError("Enter a valid price.");
+    const timer = setTimeout(() => {
+      setMessage("");
+    }, 3000);
 
-        const payload = {
-            product_code: form.product_code.trim(),
-            name: form.name.trim(),
-            category_id: Number(form.category_id),
-            brand: form.brand.trim() || null,
-            quantity: Number(form.quantity || 0),
-            unit: form.unit.trim() || "pcs",
-            price: Number(form.price),
-            cost_price: Number(form.cost_price || 0),
-            low_stock_threshold: Number(form.low_stock_threshold || 10),
-            expiration_date: form.expiration_date || null,
-            supplier_id: form.supplier_id ? Number(form.supplier_id) : null,
-            image: existingImage,
-            description: form.description.trim() || null,
-            status: form.status,
-        };
+    return () => clearTimeout(timer);
+  }, [message]);
 
-        try {
-            setSaving(true);
+  const getCategoryName = useCallback(
+    (product) => {
+      if (product.category_name) {
+        return product.category_name;
+      }
 
-            if (editingId) {
-                await api.put(`/products/${editingId}`, payload);
-                setNotice("Product updated successfully.");
-            } else {
-                await api.post("/products", payload);
-                setNotice("Product added successfully.");
-            }
+      const category = categories.find(
+        (item) => String(item.id) === String(product.category_id)
+      );
 
-            setModalOpen(false);
-            reload();
-        } catch (err) {
-            setFormError(getErrorMessage(err, "Failed to save product."));
-        } finally {
-            setSaving(false);
-        }
-    };
+      return category?.name || "—";
+    },
+    [categories]
+  );
 
-    // ---------- Delete ----------
-    const confirmDelete = async () => {
-        try {
-            setDeleting(true);
-            await api.delete(`/products/${deleteTarget.id}`);
-            setNotice(`"${deleteTarget.name}" was deleted.`);
-            setDeleteTarget(null);
-            reload();
-        } catch (err) {
-            // e.g. 409: product has existing sales records
-            setDeleteTarget(null);
-            setNotice("");
-            setError(getErrorMessage(err, "Failed to delete product."));
-        } finally {
-            setDeleting(false);
-        }
-    };
+  const getSupplierName = useCallback(
+    (product) => {
+      if (product.supplier_name) {
+        return product.supplier_name;
+      }
 
-    return (
-        <div className="page-container">
-            <div className="page-header">
-                <div>
-                    <h1>Products</h1>
-                    <p>Manage your pet shop products</p>
-                </div>
+      const supplier = suppliers.find(
+        (item) => String(item.id) === String(product.supplier_id)
+      );
 
-                <button className="primary-button" onClick={openAdd}>
-                    + Add Product
-                </button>
-            </div>
+      return supplier?.name || "";
+    },
+    [suppliers]
+  );
 
-            {error && <div className="error-message">{error}</div>}
-            {notice && <div className="success-message">{notice}</div>}
+  const filteredProducts = useMemo(() => {
+    let result = [...products];
 
-            <div className="product-toolbar">
-                <input
-                    type="text"
-                    placeholder="Search by name, code or brand..."
-                    value={search}
-                    onChange={(e) => {
-                        setSearch(e.target.value);
-                        setLoading(true);
-                    }}
-                    className="search-input"
-                />
+    if (categoryFilter) {
+      result = result.filter(
+        (product) =>
+          String(product.category_id) === String(categoryFilter) ||
+          String(product.category_name || "").toLowerCase() ===
+            String(
+              categories.find(
+                (category) =>
+                  String(category.id) === String(categoryFilter)
+              )?.name || ""
+            ).toLowerCase()
+      );
+    }
 
-                <span className="product-count">
-                    {loading ? "Loading..." : `${products.length} product(s)`}
-                </span>
-            </div>
+    if (stockFilter === "in_stock") {
+      result = result.filter((product) => Number(product.quantity) > 0);
+    }
 
-            <div className={`table-container ${loading ? "table-loading" : ""}`}>
-                <table className="data-table">
-                    <thead>
-                        <tr>
-                            <th>Code</th>
-                            <th>Product</th>
-                            <th>Category</th>
-                            <th>Brand</th>
-                            <th>Stock</th>
-                            <th>Unit</th>
-                            <th>Price</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
+    if (stockFilter === "low_stock") {
+      result = result.filter(
+        (product) =>
+          Number(product.quantity) > 0 &&
+          Number(product.quantity) <=
+            Number(product.low_stock_threshold ?? 10)
+      );
+    }
 
-                    <tbody>
-                        {products.map((product) => {
-                            const isLow =
-                                Number(product.quantity) <=
-                                Number(product.low_stock_threshold);
+    if (stockFilter === "out_of_stock") {
+      result = result.filter((product) => Number(product.quantity) <= 0);
+    }
 
-                            return (
-                                <tr key={product.id}>
-                                    <td>{product.product_code}</td>
-                                    <td>
-                                        <strong>{product.name}</strong>
-                                    </td>
-                                    <td>{product.category_name || "-"}</td>
-                                    <td>{product.brand || "-"}</td>
-                                    <td className={isLow ? "low-stock" : ""}>
-                                        {product.quantity}
-                                        {isLow && " ⚠"}
-                                    </td>
-                                    <td>{product.unit}</td>
-                                    <td>{formatPeso(product.price)}</td>
-                                    <td>
-                                        <span
-                                            className={
-                                                product.status === "active"
-                                                    ? "status active-status"
-                                                    : "status inactive-status"
-                                            }
-                                        >
-                                            {product.status}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <button
-                                            className="table-button edit-button"
-                                            onClick={() => openEdit(product)}
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            className="table-button delete-button"
-                                            onClick={() => setDeleteTarget(product)}
-                                        >
-                                            Delete
-                                        </button>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+    result.sort((a, b) => {
+      let valueA;
+      let valueB;
 
-                {!loading && products.length === 0 && (
-                    <div className="empty-message">No products found.</div>
-                )}
-            </div>
+      switch (sortBy) {
+        case "name":
+          valueA = String(a.name || "").toLowerCase();
+          valueB = String(b.name || "").toLowerCase();
+          break;
 
-            {/* Add / Edit */}
-            <Modal
-                open={modalOpen}
-                title={editingId ? "Edit Product" : "Add Product"}
-                onClose={closeModal}
-            >
-                <form onSubmit={handleSubmit} noValidate>
-                    {formError && <div className="form-error">{formError}</div>}
+        case "quantity":
+          valueA = Number(a.quantity || 0);
+          valueB = Number(b.quantity || 0);
+          break;
 
-                    <div className="form-grid">
-                        <div className="form-field">
-                            <label htmlFor="product_code">Product code *</label>
-                            <input
-                                id="product_code"
-                                name="product_code"
-                                value={form.product_code}
-                                onChange={updateField}
-                            />
-                        </div>
+        case "price":
+          valueA = Number(a.price || 0);
+          valueB = Number(b.price || 0);
+          break;
 
-                        <div className="form-field">
-                            <label htmlFor="name">Product name *</label>
-                            <input
-                                id="name"
-                                name="name"
-                                value={form.name}
-                                onChange={updateField}
-                            />
-                        </div>
+        case "expiration_date":
+          valueA = a.expiration_date
+            ? new Date(a.expiration_date).getTime()
+            : Infinity;
+          valueB = b.expiration_date
+            ? new Date(b.expiration_date).getTime()
+            : Infinity;
+          break;
 
-                        <div className="form-field">
-                            <label htmlFor="category_id">Category *</label>
-                            <select
-                                id="category_id"
-                                name="category_id"
-                                value={form.category_id}
-                                onChange={updateField}
-                            >
-                                <option value="">Select category</option>
-                                {categories.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                        {c.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+        case "date_added":
+        default:
+          valueA = a.date_added
+            ? new Date(a.date_added).getTime()
+            : 0;
+          valueB = b.date_added
+            ? new Date(b.date_added).getTime()
+            : 0;
+          break;
+      }
 
-                        <div className="form-field">
-                            <label htmlFor="supplier_id">Supplier</label>
-                            <select
-                                id="supplier_id"
-                                name="supplier_id"
-                                value={form.supplier_id}
-                                onChange={updateField}
-                            >
-                                <option value="">No supplier</option>
-                                {suppliers.map((s) => (
-                                    <option key={s.id} value={s.id}>
-                                        {s.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+      if (valueA < valueB) return sortOrder === "asc" ? -1 : 1;
+      if (valueA > valueB) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
 
-                        <div className="form-field">
-                            <label htmlFor="brand">Brand</label>
-                            <input
-                                id="brand"
-                                name="brand"
-                                value={form.brand}
-                                onChange={updateField}
-                            />
-                        </div>
+    return result;
+  }, [
+    products,
+    categoryFilter,
+    stockFilter,
+    sortBy,
+    sortOrder,
+    categories,
+  ]);
 
-                        <div className="form-field">
-                            <label htmlFor="unit">Unit</label>
-                            <input
-                                id="unit"
-                                name="unit"
-                                value={form.unit}
-                                onChange={updateField}
-                                placeholder="pcs, kg, pack..."
-                            />
-                        </div>
+  const openAddModal = () => {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setError("");
+    setModalOpen(true);
+  };
 
-                        <div className="form-field">
-                            <label htmlFor="price">Selling price (₱) *</label>
-                            <input
-                                id="price"
-                                name="price"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={form.price}
-                                onChange={updateField}
-                            />
-                        </div>
+  const openEditModal = async (id) => {
+    try {
+      setError("");
 
-                        <div className="form-field">
-                            <label htmlFor="cost_price">Cost price (₱)</label>
-                            <input
-                                id="cost_price"
-                                name="cost_price"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={form.cost_price}
-                                onChange={updateField}
-                            />
-                        </div>
+      const response = await api.get(`/products/${id}`);
+      const product = response?.data?.data ?? response?.data;
 
-                        <div className="form-field">
-                            <label htmlFor="quantity">Stock quantity</label>
-                            <input
-                                id="quantity"
-                                name="quantity"
-                                type="number"
-                                min="0"
-                                step="1"
-                                value={form.quantity}
-                                onChange={updateField}
-                            />
-                        </div>
+      setEditingId(id);
 
-                        <div className="form-field">
-                            <label htmlFor="low_stock_threshold">Low stock alert at</label>
-                            <input
-                                id="low_stock_threshold"
-                                name="low_stock_threshold"
-                                type="number"
-                                min="0"
-                                step="1"
-                                value={form.low_stock_threshold}
-                                onChange={updateField}
-                            />
-                        </div>
+      setForm({
+        product_code: product.product_code || "",
+        name: product.name || "",
+        category_id: product.category_id || "",
+        brand: product.brand || "",
+        quantity: String(product.quantity ?? 0),
+        unit: product.unit || "pcs",
+        price: String(product.price ?? ""),
+        cost_price: String(product.cost_price ?? 0),
+        low_stock_threshold: String(product.low_stock_threshold ?? 10),
+        expiration_date: toDateInput(product.expiration_date),
+        supplier_id: product.supplier_id || "",
+        description: product.description || "",
+        status: product.status || "active",
+        existingImage: product.image || "",
+      });
 
-                        <div className="form-field">
-                            <label htmlFor="expiration_date">Expiration date</label>
-                            <input
-                                id="expiration_date"
-                                name="expiration_date"
-                                type="date"
-                                value={form.expiration_date}
-                                onChange={updateField}
-                            />
-                        </div>
+      setModalOpen(true);
+    } catch (err) {
+      console.error("Failed to load product:", err);
+      setError(getErrorMessage(err, "Failed to load product."));
+    }
+  };
 
-                        <div className="form-field">
-                            <label htmlFor="status">Status</label>
-                            <select
-                                id="status"
-                                name="status"
-                                value={form.status}
-                                onChange={updateField}
-                            >
-                                <option value="active">Active</option>
-                                <option value="inactive">Inactive</option>
-                            </select>
-                        </div>
+  const closeModal = () => {
+    if (saving) return;
 
-                        <div className="form-field full">
-                            <label htmlFor="description">Description</label>
-                            <textarea
-                                id="description"
-                                name="description"
-                                rows="3"
-                                value={form.description}
-                                onChange={updateField}
-                            />
-                        </div>
-                    </div>
+    setModalOpen(false);
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+  };
 
-                    <div className="modal-actions">
-                        <button
-                            type="button"
-                            className="secondary-button"
-                            onClick={closeModal}
-                            disabled={saving}
-                        >
-                            Cancel
-                        </button>
-                        <button type="submit" className="primary-button" disabled={saving}>
-                            {saving
-                                ? "Saving..."
-                                : editingId
-                                  ? "Save Changes"
-                                  : "Add Product"}
-                        </button>
-                    </div>
-                </form>
-            </Modal>
+  const handleChange = (event) => {
+    const { name, value } = event.target;
 
-            {/* Delete confirmation */}
-            <ConfirmDialog
-                open={Boolean(deleteTarget)}
-                title="Delete product"
-                message={`Delete "${deleteTarget?.name}"? This cannot be undone.`}
-                loading={deleting}
-                onConfirm={confirmDelete}
-                onCancel={() => setDeleteTarget(null)}
-            />
+    setForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    try {
+      setSaving(true);
+      setError("");
+
+      if (!form.product_code.trim()) {
+        throw new Error("Product code is required.");
+      }
+
+      if (!form.name.trim()) {
+        throw new Error("Product name is required.");
+      }
+
+      if (!form.category_id) {
+        throw new Error("Category is required.");
+      }
+
+      if (!form.price || Number(form.price) < 0) {
+        throw new Error("Please enter a valid selling price.");
+      }
+
+      if (Number(form.quantity) < 0) {
+        throw new Error("Quantity cannot be negative.");
+      }
+
+      const payload = {
+        product_code: form.product_code.trim(),
+        name: form.name.trim(),
+        category_id: Number(form.category_id),
+        brand: form.brand.trim(),
+        quantity: Number(form.quantity),
+        unit: form.unit,
+        price: Number(form.price),
+        cost_price: Number(form.cost_price || 0),
+        low_stock_threshold: Number(form.low_stock_threshold || 10),
+        expiration_date: form.expiration_date || null,
+        supplier_id: form.supplier_id
+          ? Number(form.supplier_id)
+          : null,
+        description: form.description.trim(),
+        status: form.status,
+        image: form.existingImage || null,
+      };
+
+      if (editingId) {
+        await api.put(`/products/${editingId}`, payload);
+        setMessage("Product updated successfully.");
+      } else {
+        await api.post("/products", payload);
+        setMessage("Product added successfully.");
+      }
+
+      closeModal();
+      await loadProducts();
+    } catch (err) {
+      console.error("Failed to save product:", err);
+      setError(getErrorMessage(err, "Failed to save product."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const askDelete = (id) => {
+    setDeleteId(id);
+    setConfirmOpen(true);
+  };
+
+  const cancelDelete = () => {
+    if (deleting) return;
+
+    setConfirmOpen(false);
+    setDeleteId(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+
+    try {
+      setDeleting(true);
+      setError("");
+
+      await api.delete(`/products/${deleteId}`);
+
+      setMessage("Product deleted successfully.");
+
+      setConfirmOpen(false);
+      setDeleteId(null);
+
+      await loadProducts();
+    } catch (err) {
+      console.error("Failed to delete product:", err);
+      setError(getErrorMessage(err, "Failed to delete product."));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const resetFilters = () => {
+    setSearch("");
+    setCategoryFilter("");
+    setStockFilter("");
+    setSortBy("date_added");
+    setSortOrder("desc");
+  };
+
+  const handleSortChange = (event) => {
+    const value = event.target.value;
+
+    if (value === "name_asc") {
+      setSortBy("name");
+      setSortOrder("asc");
+    } else if (value === "quantity") {
+      setSortBy("quantity");
+      setSortOrder("desc");
+    } else if (value === "price") {
+      setSortBy("price");
+      setSortOrder("desc");
+    } else if (value === "expiry") {
+      setSortBy("expiration_date");
+      setSortOrder("asc");
+    } else {
+      setSortBy("date_added");
+      setSortOrder("desc");
+    }
+  };
+
+  const getStockClass = (product) => {
+    const quantity = Number(product.quantity || 0);
+    const threshold = Number(product.low_stock_threshold ?? 10);
+
+    if (quantity <= 0) return "chip-danger";
+    if (quantity <= threshold) return "chip-warning";
+    return "chip-success";
+  };
+
+  const getStockLabel = (product) => {
+    const quantity = Number(product.quantity || 0);
+    const threshold = Number(product.low_stock_threshold ?? 10);
+
+    if (quantity <= 0) return "Out of Stock";
+    if (quantity <= threshold) return "Low Stock";
+    return "In Stock";
+  };
+
+  const formatDate = (date) => {
+    if (!date) return "—";
+
+    const parsed = new Date(date);
+
+    if (Number.isNaN(parsed.getTime())) {
+      return "—";
+    }
+
+    return parsed.toLocaleDateString("en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+    });
+  };
+
+  const getExpiryClass = (date) => {
+    if (!date) return "";
+
+    const expiry = new Date(date);
+    const today = new Date();
+
+    today.setHours(0, 0, 0, 0);
+    expiry.setHours(0, 0, 0, 0);
+
+    const difference =
+      Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+
+    if (difference < 0) return "chip-danger";
+    if (difference <= 30) return "chip-warning";
+
+    return "";
+  };
+
+  return (
+    <div className="page-content">
+      {/* PAGE HEADER */}
+      <div className="page-header">
+        <div className="page-header-left">
+          <h1>
+            <i data-feather="package"></i>
+            Products
+          </h1>
+
+          <p>
+            Manage your pet shop inventory ({products.length} products)
+          </p>
         </div>
-    );
+
+        <div className="page-actions">
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={openAddModal}
+          >
+            <i data-feather="plus"></i>
+            Add Product
+          </button>
+        </div>
+      </div>
+
+      {/* NOTIFICATIONS */}
+      {message && (
+        <div className="alert alert-success">
+          <i data-feather="check-circle"></i>
+          <span>{message}</span>
+        </div>
+      )}
+
+      {error && !modalOpen && (
+        <div className="alert alert-danger">
+          <i data-feather="alert-circle"></i>
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* FILTER CARD */}
+      <div className="card">
+        <div className="card-body">
+          <div className="filter-bar">
+            <div className="search-box">
+              <i data-feather="search"></i>
+
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Search by name, code or brand..."
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </div>
+
+            <select
+              className="form-control"
+              value={categoryFilter}
+              onChange={(event) =>
+                setCategoryFilter(event.target.value)
+              }
+            >
+              <option value="">All Categories</option>
+
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="form-control"
+              value={stockFilter}
+              onChange={(event) =>
+                setStockFilter(event.target.value)
+              }
+            >
+              <option value="">All Stock</option>
+              <option value="in_stock">In Stock</option>
+              <option value="low_stock">Low Stock</option>
+              <option value="out_of_stock">Out of Stock</option>
+            </select>
+
+            <select
+              className="form-control"
+              value={
+                sortBy === "name"
+                  ? "name_asc"
+                  : sortBy === "quantity"
+                  ? "quantity"
+                  : sortBy === "price"
+                  ? "price"
+                  : sortBy === "expiration_date"
+                  ? "expiry"
+                  : "newest"
+              }
+              onChange={handleSortChange}
+            >
+              <option value="newest">Newest First</option>
+              <option value="name_asc">Name A-Z</option>
+              <option value="quantity">Quantity</option>
+              <option value="price">Price</option>
+              <option value="expiry">Expiry Date</option>
+            </select>
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                // Filters are applied immediately.
+              }}
+            >
+              <i data-feather="filter"></i>
+              Filter
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={resetFilters}
+            >
+              <i data-feather="x"></i>
+              Reset
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* PRODUCTS TABLE */}
+      <div className="card">
+        <div className="card-body">
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Category</th>
+                  <th>Brand</th>
+                  <th>Qty</th>
+                  <th>Price</th>
+                  <th>Expiry</th>
+                  <th>Status</th>
+                  <th className="text-right">Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan="8">
+                      <div className="empty-state">
+                        Loading products...
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredProducts.length === 0 ? (
+                  <tr>
+                    <td colSpan="8">
+                      <div className="empty-state">
+                        <i data-feather="package"></i>
+                        <p>No products found.</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredProducts.map((product) => (
+                    <tr key={product.id}>
+                      {/* PRODUCT */}
+                      <td>
+                        <div className="product-info">
+                          {product.image ? (
+                            <img
+                              src={product.image}
+                              alt={product.name}
+                              className="product-thumb"
+                            />
+                          ) : (
+                            <div className="product-thumb product-thumb-placeholder">
+                              <i data-feather="package"></i>
+                            </div>
+                          )}
+
+                          <div>
+                            <strong>{product.name}</strong>
+
+                            <div className="text-muted text-sm">
+                              {product.product_code || "—"}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* CATEGORY */}
+                      <td>
+                        <span className="chip chip-info">
+                          {getCategoryName(product)}
+                        </span>
+                      </td>
+
+                      {/* BRAND */}
+                      <td>
+                        {product.brand || "—"}
+                      </td>
+
+                      {/* QUANTITY */}
+                      <td>
+                        <strong>{product.quantity ?? 0}</strong>
+                      </td>
+
+                      {/* PRICE */}
+                      <td>
+                        {formatPeso(product.price)}
+                      </td>
+
+                      {/* EXPIRY */}
+                      <td>
+                        {product.expiration_date ? (
+                          <span
+                            className={`chip ${getExpiryClass(
+                              product.expiration_date
+                            )}`}
+                          >
+                            {formatDate(product.expiration_date)}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+
+                      {/* STATUS */}
+                      <td>
+                        <span
+                          className={`chip ${getStockClass(
+                            product
+                          )}`}
+                        >
+                          {getStockLabel(product)}
+                        </span>
+                      </td>
+
+                      {/* ACTIONS */}
+                      <td>
+                        <div
+                          className="action-group"
+                          style={{
+                            display: "flex",
+                            justifyContent: "flex-end",
+                            gap: "6px",
+                          }}
+                        >
+                          <button
+                            type="button"
+                            className="action-btn action-edit"
+                            title="Edit Product"
+                            onClick={() =>
+                              openEditModal(product.id)
+                            }
+                          >
+                            <i data-feather="edit-2"></i>
+                            <span>Edit</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            className="action-btn action-delete"
+                            title="Delete Product"
+                            onClick={() =>
+                              askDelete(product.id)
+                            }
+                          >
+                            <i data-feather="trash-2"></i>
+                            <span>Delete</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* FOOTER */}
+        {!loading && (
+          <div className="card-footer">
+            Showing {filteredProducts.length} of {products.length}{" "}
+            products
+          </div>
+        )}
+      </div>
+
+      {/* ADD / EDIT MODAL */}
+      <Modal
+        open={modalOpen}
+        onClose={closeModal}
+        title={editingId ? "Edit Product" : "Add Product"}
+        size="large"
+      >
+        <form onSubmit={handleSubmit}>
+          {error && (
+            <div className="alert alert-danger">
+              <i data-feather="alert-circle"></i>
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="form-grid form-grid-2">
+            {/* PRODUCT CODE */}
+            <div className="form-group">
+              <label>
+                Product Code <span className="req">*</span>
+              </label>
+
+              <input
+                type="text"
+                name="product_code"
+                className="form-control"
+                value={form.product_code}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            {/* PRODUCT NAME */}
+            <div className="form-group">
+              <label>
+                Product Name <span className="req">*</span>
+              </label>
+
+              <input
+                type="text"
+                name="name"
+                className="form-control"
+                value={form.name}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            {/* CATEGORY */}
+            <div className="form-group">
+              <label>
+                Category <span className="req">*</span>
+              </label>
+
+              <select
+                name="category_id"
+                className="form-control"
+                value={form.category_id}
+                onChange={handleChange}
+                required
+              >
+                <option value="">Select Category</option>
+
+                {categories.map((category) => (
+                  <option
+                    key={category.id}
+                    value={category.id}
+                  >
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* BRAND */}
+            <div className="form-group">
+              <label>Brand</label>
+
+              <input
+                type="text"
+                name="brand"
+                className="form-control"
+                value={form.brand}
+                onChange={handleChange}
+              />
+            </div>
+
+            {/* QUANTITY */}
+            <div className="form-group">
+              <label>Quantity</label>
+
+              <input
+                type="number"
+                name="quantity"
+                className="form-control"
+                min="0"
+                step="1"
+                value={form.quantity}
+                onChange={handleChange}
+              />
+
+              <div className="form-hint">
+                Stock changes are automatically recorded.
+              </div>
+            </div>
+
+            {/* UNIT */}
+            <div className="form-group">
+              <label>Unit</label>
+
+              <select
+                name="unit"
+                className="form-control"
+                value={form.unit}
+                onChange={handleChange}
+              >
+                <option value="pcs">Pieces</option>
+                <option value="box">Box</option>
+                <option value="pack">Pack</option>
+                <option value="kg">Kilogram</option>
+                <option value="g">Gram</option>
+                <option value="bottle">Bottle</option>
+                <option value="bag">Bag</option>
+              </select>
+            </div>
+
+            {/* SELLING PRICE */}
+            <div className="form-group">
+              <label>
+                Selling Price <span className="req">*</span>
+              </label>
+
+              <input
+                type="number"
+                name="price"
+                className="form-control"
+                min="0"
+                step="0.01"
+                value={form.price}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            {/* COST PRICE */}
+            <div className="form-group">
+              <label>Cost Price</label>
+
+              <input
+                type="number"
+                name="cost_price"
+                className="form-control"
+                min="0"
+                step="0.01"
+                value={form.cost_price}
+                onChange={handleChange}
+              />
+            </div>
+
+            {/* LOW STOCK */}
+            <div className="form-group">
+              <label>Low Stock Threshold</label>
+
+              <input
+                type="number"
+                name="low_stock_threshold"
+                className="form-control"
+                min="0"
+                step="1"
+                value={form.low_stock_threshold}
+                onChange={handleChange}
+              />
+            </div>
+
+            {/* EXPIRATION */}
+            <div className="form-group">
+              <label>Expiration Date</label>
+
+              <input
+                type="date"
+                name="expiration_date"
+                className="form-control"
+                value={form.expiration_date}
+                onChange={handleChange}
+              />
+            </div>
+
+            {/* SUPPLIER */}
+            <div className="form-group">
+              <label>Supplier</label>
+
+              <select
+                name="supplier_id"
+                className="form-control"
+                value={form.supplier_id}
+                onChange={handleChange}
+              >
+                <option value="">No Supplier</option>
+
+                {suppliers.map((supplier) => (
+                  <option
+                    key={supplier.id}
+                    value={supplier.id}
+                  >
+                    {supplier.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* STATUS */}
+            <div className="form-group">
+              <label>Status</label>
+
+              <select
+                name="status"
+                className="form-control"
+                value={form.status}
+                onChange={handleChange}
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            {/* IMAGE */}
+            <div className="form-group">
+              <label>Product Image</label>
+
+              <div className="image-upload-box">
+                <i data-feather="image"></i>
+
+                <span>
+                  Image upload can be connected to the backend
+                  later.
+                </span>
+              </div>
+            </div>
+
+            {/* DESCRIPTION */}
+            <div className="form-group">
+              <label>Description</label>
+
+              <textarea
+                name="description"
+                className="form-control"
+                rows="4"
+                value={form.description}
+                onChange={handleChange}
+              />
+            </div>
+          </div>
+
+          <div className="modal-footer">
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={closeModal}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={saving}
+            >
+              {saving ? (
+                "Saving..."
+              ) : (
+                <>
+                  <i data-feather="save"></i>
+                  {editingId ? "Update Product" : "Save Product"}
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* DELETE CONFIRMATION */}
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Delete Product"
+        message="Are you sure you want to delete this product? This action cannot be undone."
+        confirmText={deleting ? "Deleting..." : "Delete"}
+        cancelText="Cancel"
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+        danger
+      />
+    </div>
+  );
 }
 
 export default Products;

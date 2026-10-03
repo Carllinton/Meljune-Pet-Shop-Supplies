@@ -1,19 +1,41 @@
 const db = require("../config/database");
 
+
+// =============================================
+// GET ALL CUSTOMERS
+// =============================================
 const getCustomers = async (req, res) => {
     try {
         const [customers] = await db.query(`
             SELECT
-                id,
-                customer_code,
-                name,
-                phone,
-                address,
-                credit_limit,
-                status,
-                created_at
-            FROM customers
-            ORDER BY id ASC
+                c.id,
+                c.customer_code,
+                c.name,
+                c.phone,
+                c.address,
+                c.credit_limit,
+                c.status,
+                c.created_at,
+
+                COALESCE(
+                    (
+                        SELECT SUM(
+                            CASE
+                                WHEN ct.transaction_type = 'credit'
+                                    THEN ct.amount
+                                WHEN ct.transaction_type = 'payment'
+                                    THEN -ct.amount
+                                ELSE 0
+                            END
+                        )
+                        FROM credit_transactions ct
+                        WHERE ct.customer_id = c.id
+                    ),
+                    0
+                ) AS balance
+
+            FROM customers c
+            ORDER BY c.id ASC
         `);
 
         res.json({
@@ -31,22 +53,44 @@ const getCustomers = async (req, res) => {
     }
 };
 
+
+// =============================================
+// GET CUSTOMER BY ID
+// =============================================
 const getCustomerById = async (req, res) => {
     try {
         const { id } = req.params;
 
         const [customers] = await db.query(`
             SELECT
-                id,
-                customer_code,
-                name,
-                phone,
-                address,
-                credit_limit,
-                status,
-                created_at
-            FROM customers
-            WHERE id = ?
+                c.id,
+                c.customer_code,
+                c.name,
+                c.phone,
+                c.address,
+                c.credit_limit,
+                c.status,
+                c.created_at,
+
+                COALESCE(
+                    (
+                        SELECT SUM(
+                            CASE
+                                WHEN ct.transaction_type = 'credit'
+                                    THEN ct.amount
+                                WHEN ct.transaction_type = 'payment'
+                                    THEN -ct.amount
+                                ELSE 0
+                            END
+                        )
+                        FROM credit_transactions ct
+                        WHERE ct.customer_id = c.id
+                    ),
+                    0
+                ) AS balance
+
+            FROM customers c
+            WHERE c.id = ?
         `, [id]);
 
         if (customers.length === 0) {
@@ -71,6 +115,10 @@ const getCustomerById = async (req, res) => {
     }
 };
 
+
+// =============================================
+// CREATE CUSTOMER
+// =============================================
 const createCustomer = async (req, res) => {
     try {
         const {
@@ -119,6 +167,7 @@ const createCustomer = async (req, res) => {
         });
     }
 };
+
 
 // =============================================
 // UPDATE CUSTOMER
@@ -264,6 +313,7 @@ const deleteCustomer = async (req, res) => {
         });
     }
 };
+
 
 module.exports = {
     getCustomers,

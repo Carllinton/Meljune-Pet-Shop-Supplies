@@ -6,10 +6,11 @@ function Sidebar() {
         { name: "Products", path: "/products" },
         { name: "Categories", path: "/categories" },
         { name: "Suppliers", path: "/suppliers" },
-        { name: "Customers", path: "/customers" },
+        { name: "Inventory", path: "/inventory" },
         { name: "POS", path: "/pos" },
-        { name: "Stock Transactions", path: "/stock-transactions" },
-        { name: "Sales", path: "/sales" },
+        { name: "Credit", path: "/credit" },
+        { name: "Reports", path: "/reports" },
+        { name: "Settings", path: "/settings" },
     ];
 
     return (
