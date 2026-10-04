@@ -10,21 +10,55 @@ const {
     deleteCategory
 } = require("../controllers/categoryController");
 
+const authenticateToken = require("../middleware/authMiddleware");
+const authorizeRoles = require("../middleware/roleMiddleware");
 
-// GET all categories
-router.get("/", getCategories);
 
-// GET category by ID
-router.get("/:id", getCategoryById);
+// =============================================
+// VIEW CATEGORIES
+// ADMIN + CASHIER
+// =============================================
 
-// CREATE category
-router.post("/", createCategory);
+router.get(
+    "/",
+    authenticateToken,
+    authorizeRoles("admin", "cashier"),
+    getCategories
+);
 
-// UPDATE category
-router.put("/:id", updateCategory);
+router.get(
+    "/:id",
+    authenticateToken,
+    authorizeRoles("admin", "cashier"),
+    getCategoryById
+);
 
-// DELETE category
-router.delete("/:id", deleteCategory);
+
+// =============================================
+// CATEGORY MANAGEMENT
+// ADMIN ONLY
+// =============================================
+
+router.post(
+    "/",
+    authenticateToken,
+    authorizeRoles("admin"),
+    createCategory
+);
+
+router.put(
+    "/:id",
+    authenticateToken,
+    authorizeRoles("admin"),
+    updateCategory
+);
+
+router.delete(
+    "/:id",
+    authenticateToken,
+    authorizeRoles("admin"),
+    deleteCategory
+);
 
 
 module.exports = router;

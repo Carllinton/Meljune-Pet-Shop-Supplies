@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import Modal from "../components/Modal";
 import ConfirmDialog from "../components/ConfirmDialog";
+import { getUser } from "../services/auth";
 
 const EMPTY_FORM = {
     name: "",
@@ -12,6 +13,9 @@ const EMPTY_FORM = {
 };
 
 function Suppliers() {
+    const user = getUser();
+    const isAdmin = user?.role === "admin";
+
     const [suppliers, setSuppliers] = useState([]);
     const [search, setSearch] = useState("");
 
@@ -231,13 +235,15 @@ function Suppliers() {
                 </div>
 
                 <div className="page-actions">
-                    <button
-                        className="btn btn-primary"
-                        onClick={openAddModal}
-                    >
-                        <i data-feather="plus"></i>
-                        Add Supplier
-                    </button>
+                    {isAdmin && (
+                        <button
+                            className="btn btn-primary"
+                            onClick={openAddModal}
+                        >
+                            <i data-feather="plus"></i>
+                            Add Supplier
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -447,10 +453,11 @@ function Suppliers() {
 
                                         {/* ACTIONS */}
                                         <td>
-                                            <div className="action-group">
-                                                <button
-                                                    type="button"
-                                                    className="action-btn action-btn-edit"
+                                            {isAdmin && (
+                                                <div className="action-group">
+                                                    <button
+                                                        type="button"
+                                                        className="action-btn action-btn-edit"
                                                     title="Edit supplier"
                                                     onClick={() =>
                                                         openEditModal(
@@ -472,8 +479,9 @@ function Suppliers() {
                                                     }
                                                 >
                                                     <i data-feather="trash-2"></i>
-                                                </button>
-                                            </div>
+                                                    </button>
+                                                </div>
+                                            )}
                                         </td>
                                     </tr>
                                 ))

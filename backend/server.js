@@ -3,6 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 
 const db = require("./config/database");
+
 const productRoutes = require("./routes/productRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
 const supplierRoutes = require("./routes/supplierRoutes");
@@ -13,9 +14,7 @@ const creditTransactionRoutes = require("./routes/creditTransactionRoutes");
 const stockTransactionRoutes = require("./routes/stockTransactionRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
-
-
-
+const authRoutes = require("./routes/authRoutes");
 
 const app = express();
 
@@ -28,6 +27,20 @@ app.get("/", (req, res) => {
     });
 });
 
+/*
+|--------------------------------------------------------------------------
+| Authentication
+|--------------------------------------------------------------------------
+*/
+
+app.use("/api/auth", authRoutes);
+
+/*
+|--------------------------------------------------------------------------
+| Existing API Routes
+|--------------------------------------------------------------------------
+*/
+
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/suppliers", supplierRoutes);
@@ -39,9 +52,10 @@ app.use("/api/stock-transactions", stockTransactionRoutes);
 app.use("/api/admins", adminRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 
-
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-    console.log(`Meljune Pet Supplies Server running on http://localhost:${PORT}`);
+    console.log(
+        `Meljune Pet Supplies Server running on http://localhost:${PORT}`
+    );
 });

@@ -3,6 +3,7 @@ import api from "../services/api";
 import Modal from "../components/Modal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import useDebounce from "../hooks/useDebounce";
+import { getUser } from "../services/auth";
 import {
   formatPeso,
   getErrorMessage,
@@ -26,6 +27,9 @@ const EMPTY_FORM = {
 };
 
 function Products() {
+  const user = getUser();
+  const isAdmin = user?.role === "admin";
+
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -490,14 +494,16 @@ function Products() {
         </div>
 
         <div className="page-actions">
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={openAddModal}
-          >
-            <i data-feather="plus"></i>
-            Add Product
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={openAddModal}
+            >
+              <i data-feather="plus"></i>
+              Add Product
+            </button>
+          )}
         </div>
       </div>
 
@@ -620,7 +626,7 @@ function Products() {
                   <th>Price</th>
                   <th>Expiry</th>
                   <th>Status</th>
-                  <th className="text-right">Actions</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
 
@@ -717,41 +723,30 @@ function Products() {
                           {getStockLabel(product)}
                         </span>
                       </td>
-
+                      
                       {/* ACTIONS */}
                       <td>
-                        <div
-                          className="action-group"
-                          style={{
-                            display: "flex",
-                            justifyContent: "flex-end",
-                            gap: "6px",
-                          }}
-                        >
-                          <button
-                            type="button"
-                            className="action-btn action-edit"
-                            title="Edit Product"
-                            onClick={() =>
-                              openEditModal(product.id)
-                            }
-                          >
-                            <i data-feather="edit-2"></i>
-                            <span>Edit</span>
-                          </button>
+                        {isAdmin && (
+                          <div className="action-group">
+                            <button
+                              type="button"
+                              className="action-btn action-btn-edit"
+                              title="Edit Product"
+                              onClick={() => openEditModal(product.id)}
+                            >
+                              <i data-feather="edit-2"></i>
+                            </button>
 
-                          <button
-                            type="button"
-                            className="action-btn action-delete"
-                            title="Delete Product"
-                            onClick={() =>
-                              askDelete(product.id)
-                            }
-                          >
-                            <i data-feather="trash-2"></i>
-                            <span>Delete</span>
-                          </button>
-                        </div>
+                            <button
+                              type="button"
+                              className="action-btn action-btn-delete"
+                              title="Delete Product"
+                              onClick={() => askDelete(product.id)}
+                            >
+                              <i data-feather="trash-2"></i>
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))

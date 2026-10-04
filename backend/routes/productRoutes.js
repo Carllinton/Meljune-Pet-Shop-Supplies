@@ -9,24 +9,64 @@ const {
     createProduct,
     updateProduct,
     deleteProduct
-} = require("../controllers/productController")
+} = require("../controllers/productController");
 
-// GET all products
-router.get("/", getProducts);
+const authenticateToken = require("../middleware/authMiddleware");
+const authorizeRoles = require("../middleware/roleMiddleware");
 
-// Search products
-router.get("/search", searchProducts);
 
-// GET product by ID
-router.get("/:id", getProductById);
+// =============================================
+// VIEW PRODUCTS
+// ADMIN + CASHIER
+// =============================================
 
-// CREATE product
-router.post("/", createProduct);
+router.get(
+    "/",
+    authenticateToken,
+    authorizeRoles("admin", "cashier"),
+    getProducts
+);
 
-// UPDATE product
-router.put("/:id", updateProduct);
+router.get(
+    "/search",
+    authenticateToken,
+    authorizeRoles("admin", "cashier"),
+    searchProducts
+);
 
-// DELETE product
-router.delete("/:id", deleteProduct);
+router.get(
+    "/:id",
+    authenticateToken,
+    authorizeRoles("admin", "cashier"),
+    getProductById
+);
+
+
+// =============================================
+// PRODUCT MANAGEMENT
+// ADMIN ONLY
+// =============================================
+
+router.post(
+    "/",
+    authenticateToken,
+    authorizeRoles("admin"),
+    createProduct
+);
+
+router.put(
+    "/:id",
+    authenticateToken,
+    authorizeRoles("admin"),
+    updateProduct
+);
+
+router.delete(
+    "/:id",
+    authenticateToken,
+    authorizeRoles("admin"),
+    deleteProduct
+);
+
 
 module.exports = router;

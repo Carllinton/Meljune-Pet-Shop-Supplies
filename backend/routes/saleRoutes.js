@@ -1,4 +1,5 @@
 const express = require("express");
+
 const router = express.Router();
 
 const {
@@ -7,17 +8,35 @@ const {
     createSale
 } = require("../controllers/saleController");
 
-
-// GET ALL SALES
-router.get("/", getSales);
-
-
-// GET SALE BY ID
-router.get("/:id", getSaleById);
+const authenticateToken = require("../middleware/authMiddleware");
+const authorizeRoles = require("../middleware/roleMiddleware");
 
 
-// CREATE SALE
-router.post("/", createSale);
+// =============================================
+// SALES
+// ADMIN + CASHIER
+// =============================================
+
+router.get(
+    "/",
+    authenticateToken,
+    authorizeRoles("admin", "cashier"),
+    getSales
+);
+
+router.get(
+    "/:id",
+    authenticateToken,
+    authorizeRoles("admin", "cashier"),
+    getSaleById
+);
+
+router.post(
+    "/",
+    authenticateToken,
+    authorizeRoles("admin", "cashier"),
+    createSale
+);
 
 
 module.exports = router;

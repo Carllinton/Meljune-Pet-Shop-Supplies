@@ -1,6 +1,15 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import {
+    BrowserRouter,
+    Routes,
+    Route,
+    Navigate,
+} from "react-router-dom";
 
 import Sidebar from "./components/Sidebar";
+import ProtectedRoute from "./components/ProtectedRoute";
+import RoleRoute from "./components/RoleRoute";
+
+import Login from "./pages/Login";
 
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
@@ -15,63 +24,127 @@ import Settings from "./pages/Settings";
 function App() {
     return (
         <BrowserRouter>
-            <div className="app-layout">
-                <Sidebar />
+            <Routes>
 
-                <main className="main-content">
-                    <Routes>
-                        <Route
-                            path="/"
-                            element={<Navigate to="/dashboard" />}
-                        />
+                {/* =================================================
+                    PUBLIC
+                    ================================================= */}
 
-                        <Route
-                            path="/dashboard"
-                            element={<Dashboard />}
-                        />
+                <Route
+                    path="/login"
+                    element={<Login />}
+                />
 
-                        <Route
-                            path="/products"
-                            element={<Products />}
-                        />
+                {/* =================================================
+                    PROTECTED APPLICATION
+                    ================================================= */}
 
-                        <Route
-                            path="/categories"
-                            element={<Categories />}
-                        />
+                <Route element={<ProtectedRoute />}>
 
-                        <Route
-                            path="/suppliers"
-                            element={<Suppliers />}
-                        />
+                    <Route
+                        path="/*"
+                        element={
+                            <div className="app-layout">
 
-                        <Route
-                            path="/inventory"
-                            element={<Inventory />}
-                        />
+                                <Sidebar />
 
-                        <Route
-                            path="/pos"
-                            element={<POS />}
-                        />
+                                <main className="main-content">
+                                    <Routes>
 
-                        <Route
-                            path="/credit"
-                            element={<Credit />}
-                        />
+                                        <Route
+                                            path="/"
+                                            element={
+                                                <Navigate
+                                                    to="/dashboard"
+                                                    replace
+                                                />
+                                            }
+                                        />
 
-                        <Route
-                            path="/reports"
-                            element={<Reports />}
-                        />
+                                        <Route
+                                            path="/dashboard"
+                                            element={<Dashboard />}
+                                        />
 
-                        <Route
-                            path="/settings"
-                            element={<Settings />}
+                                        <Route
+                                            path="/products"
+                                            element={<Products />}
+                                        />
+
+                                        <Route
+                                            path="/categories"
+                                            element={<Categories />}
+                                        />
+
+                                        <Route
+                                            path="/suppliers"
+                                            element={<Suppliers />}
+                                        />
+
+                                        <Route
+                                            path="/inventory"
+                                            element={<Inventory />}
+                                        />
+
+                                        <Route
+                                            path="/pos"
+                                            element={<POS />}
+                                        />
+
+                                        <Route
+                                            path="/credit"
+                                            element={<Credit />}
+                                        />
+
+                                        <Route
+                                            path="/reports"
+                                            element={<Reports />}
+                                        />
+
+                                        {/* ADMIN ONLY */}
+                                        <Route element={<RoleRoute allowedRoles={["admin"]} />}>
+
+                                            <Route
+                                                path="/settings"
+                                                element={<Settings />}
+                                            />
+
+                                        </Route>
+
+                                        <Route
+                                            path="*"
+                                            element={
+                                                <Navigate
+                                                    to="/dashboard"
+                                                    replace
+                                                />
+                                            }
+                                        />
+
+                                    </Routes>
+                                </main>
+
+                            </div>
+                        }
+                    />
+
+                </Route>
+
+                {/* =================================================
+                    FALLBACK
+                    ================================================= */}
+
+                <Route
+                    path="*"
+                    element={
+                        <Navigate
+                            to="/login"
+                            replace
                         />
-                    </Routes>
-                </main>
-            </div>
+                    }
+                />
+
+            </Routes>
         </BrowserRouter>
     );
 }

@@ -10,21 +10,61 @@ const {
     deleteCustomer
 } = require("../controllers/customerController");
 
+const authenticateToken = require("../middleware/authMiddleware");
+const authorizeRoles = require("../middleware/roleMiddleware");
 
-// GET all customers
-router.get("/", getCustomers);
 
-// GET customer by ID
-router.get("/:id", getCustomerById);
+// =============================================
+// VIEW CUSTOMERS
+// ADMIN + CASHIER
+// =============================================
 
-// CREATE customer
-router.post("/", createCustomer);
+router.get(
+    "/",
+    authenticateToken,
+    authorizeRoles("admin", "cashier"),
+    getCustomers
+);
 
-// UPDATE customer
-router.put("/:id", updateCustomer);
+router.get(
+    "/:id",
+    authenticateToken,
+    authorizeRoles("admin", "cashier"),
+    getCustomerById
+);
 
-// DELETE customer
-router.delete("/:id", deleteCustomer);
+
+// =============================================
+// CUSTOMER MANAGEMENT
+// ADMIN + CASHIER
+// =============================================
+
+router.post(
+    "/",
+    authenticateToken,
+    authorizeRoles("admin", "cashier"),
+    createCustomer
+);
+
+router.put(
+    "/:id",
+    authenticateToken,
+    authorizeRoles("admin", "cashier"),
+    updateCustomer
+);
+
+
+// =============================================
+// DELETE CUSTOMER
+// ADMIN ONLY
+// =============================================
+
+router.delete(
+    "/:id",
+    authenticateToken,
+    authorizeRoles("admin"),
+    deleteCustomer
+);
 
 
 module.exports = router;

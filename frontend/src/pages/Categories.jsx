@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { getErrorMessage } from "../utils/format";
+import { getUser } from "../services/auth";
 
 const EMPTY_FORM = {
   name: "",
@@ -11,6 +12,9 @@ const EMPTY_FORM = {
 };
 
 function Categories() {
+  const user = getUser();
+  const isAdmin = user?.role === "admin";
+
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
 
@@ -372,14 +376,16 @@ function Categories() {
         </div>
 
         <div className="page-actions">
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={openAddModal}
-          >
-            <i data-feather="plus"></i>
-            Add Category
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={openAddModal}
+            >
+              <i data-feather="plus"></i>
+              Add Category
+            </button>
+          )}
         </div>
       </div>
 
@@ -517,11 +523,12 @@ function Categories() {
                         ></i>
                       </div>
 
-                      <div className="action-group">
+                      {isAdmin && (
+                        <div className="action-group">
 
-                        <button
-                          type="button"
-                          className="action-btn action-btn-edit"
+                          <button
+                            type="button"
+                            className="action-btn action-btn-edit"
                           title="Edit Category"
                           onClick={() =>
                             openEditModal(
@@ -543,9 +550,10 @@ function Categories() {
                           }
                         >
                           <i data-feather="trash-2"></i>
-                        </button>
+                          </button>
 
-                      </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* NAME */}

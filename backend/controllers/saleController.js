@@ -104,7 +104,6 @@ const createSale = async (req, res) => {
 
         const {
             customer_id,
-            admin_id,
             payment_method,
             amount_tendered,
             discount,
@@ -114,15 +113,22 @@ const createSale = async (req, res) => {
 
 
         // ==========================================
-        // BASIC VALIDATION
+        // GET LOGGED-IN USER
         // ==========================================
 
+        const admin_id = req.user?.id;
+
         if (!admin_id) {
-            return res.status(400).json({
+            return res.status(401).json({
                 success: false,
-                message: "Admin ID is required"
+                message: "Authenticated user ID is missing"
             });
         }
+
+
+        // ==========================================
+        // BASIC VALIDATION
+        // ==========================================
 
         if (!payment_method) {
             return res.status(400).json({
@@ -161,7 +167,7 @@ const createSale = async (req, res) => {
 
 
         // ==========================================
-        // CHECK ADMIN
+        // CHECK LOGGED-IN ADMIN / STAFF ACCOUNT
         // ==========================================
 
         const [admins] = await connection.query(`
@@ -171,7 +177,7 @@ const createSale = async (req, res) => {
         `, [admin_id]);
 
         if (admins.length === 0) {
-            throw new Error("Admin not found");
+            throw new Error("Logged-in user account not found");
         }
 
 

@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
+import { getUser } from "../services/auth";
 
 function Settings() {
+    const user = getUser();
+    const adminId = user?.id;
+
     const [profile, setProfile] = useState({
         full_name: "",
         email: "",
@@ -24,7 +28,7 @@ function Settings() {
 
     const loadProfile = async () => {
         try {
-            const response = await api.get("/admins/1");
+            const response = await api.get(`/admins/${adminId}`);
 
             if (response.data.success) {
                 setProfile(response.data.data);
@@ -64,7 +68,7 @@ function Settings() {
         e.preventDefault();
 
         try {
-            const response = await api.put("/admins/1", {
+            const response = await api.put(`/admins/${adminId}`, {
                 full_name: profile.full_name,
                 email: profile.email,
             });
@@ -105,7 +109,7 @@ function Settings() {
         }
 
         try {
-            const response = await api.put("/admins/1/password", {
+            const response = await api.put(`/admins/${adminId}/password`, {
                 current_password: password.current_password,
                 new_password: password.new_password,
             });

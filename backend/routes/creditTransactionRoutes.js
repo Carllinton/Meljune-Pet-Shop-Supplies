@@ -8,27 +8,39 @@ const {
     recordPayment
 } = require("../controllers/creditTransactionController");
 
-
-// =============================================
-// GET ALL CREDIT TRANSACTIONS
-// =============================================
-router.get("/", getCreditTransactions);
+const authenticateToken = require("../middleware/authMiddleware");
+const authorizeRoles = require("../middleware/roleMiddleware");
 
 
 // =============================================
-// GET CUSTOMER CREDIT HISTORY
+// VIEW CREDIT TRANSACTIONS
+// ADMIN + CASHIER
 // =============================================
+
+router.get(
+    "/",
+    authenticateToken,
+    authorizeRoles("admin", "cashier"),
+    getCreditTransactions
+);
+
 router.get(
     "/customer/:customerId",
+    authenticateToken,
+    authorizeRoles("admin", "cashier"),
     getCreditTransactionsByCustomer
 );
 
 
 // =============================================
-// RECORD CUSTOMER PAYMENT
+// RECORD PAYMENT
+// ADMIN + CASHIER
 // =============================================
+
 router.post(
     "/payment",
+    authenticateToken,
+    authorizeRoles("admin", "cashier"),
     recordPayment
 );
 

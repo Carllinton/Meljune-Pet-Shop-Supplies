@@ -10,21 +10,55 @@ const {
     deleteSupplier
 } = require("../controllers/supplierController");
 
+const authenticateToken = require("../middleware/authMiddleware");
+const authorizeRoles = require("../middleware/roleMiddleware");
 
-// GET all suppliers
-router.get("/", getSuppliers);
 
-// GET supplier by ID
-router.get("/:id", getSupplierById);
+// =============================================
+// VIEW SUPPLIERS
+// ADMIN + CASHIER
+// =============================================
 
-// CREATE supplier
-router.post("/", createSupplier);
+router.get(
+    "/",
+    authenticateToken,
+    authorizeRoles("admin", "cashier"),
+    getSuppliers
+);
 
-// UPDATE supplier
-router.put("/:id", updateSupplier);
+router.get(
+    "/:id",
+    authenticateToken,
+    authorizeRoles("admin", "cashier"),
+    getSupplierById
+);
 
-// DELETE supplier
-router.delete("/:id", deleteSupplier);
+
+// =============================================
+// SUPPLIER MANAGEMENT
+// ADMIN ONLY
+// =============================================
+
+router.post(
+    "/",
+    authenticateToken,
+    authorizeRoles("admin"),
+    createSupplier
+);
+
+router.put(
+    "/:id",
+    authenticateToken,
+    authorizeRoles("admin"),
+    updateSupplier
+);
+
+router.delete(
+    "/:id",
+    authenticateToken,
+    authorizeRoles("admin"),
+    deleteSupplier
+);
 
 
 module.exports = router;

@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import Modal from "../components/Modal";
+import { getUser } from "../services/auth";
 
 function Inventory() {
+    const user = getUser();
+    const isAdmin = user?.role === "admin";
+
     const [transactions, setTransactions] = useState([]);
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -455,8 +459,7 @@ function Inventory() {
                     reference:
                         form.reference.trim() || null,
                     reason:
-                        form.reason.trim() || null,
-                    admin_id: 1
+                        form.reason.trim() || null
                 }
             );
 
@@ -644,13 +647,15 @@ function Inventory() {
                 </div>
 
                 <div className="page-actions">
-                    <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={openModal}
-                    >
-                        Stock Adjustment
-                    </button>
+                    {isAdmin && (
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={openModal}
+                        >
+                            Stock Adjustment
+                        </button>
+                    )}
                 </div>
             </div>
 

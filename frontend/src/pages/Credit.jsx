@@ -426,6 +426,7 @@ function Credit() {
             <div className="page-header">
                 <div className="page-header-left">
                     <h1>Credit Management</h1>
+
                     <p>
                         Manage customer credit accounts,
                         outstanding balances, and payment history.
@@ -530,7 +531,9 @@ function Credit() {
                                     <th>Outstanding Balance</th>
                                     <th>Status</th>
                                     <th>Last Activity</th>
-                                    <th>Actions</th>
+                                    <th className="credit-actions-header">
+                                        Actions
+                                    </th>
                                 </tr>
                             </thead>
 
@@ -563,22 +566,17 @@ function Credit() {
                                     filteredCustomers.map(
                                         (customer) => {
                                             const balance =
-                                                getBalance(
-                                                    customer
-                                                );
+                                                getBalance(customer);
 
                                             const isActive =
                                                 String(
-                                                    customer.status ||
-                                                        ""
+                                                    customer.status || ""
                                                 ).toLowerCase() ===
                                                 "active";
 
                                             return (
                                                 <tr
-                                                    key={
-                                                        customer.id
-                                                    }
+                                                    key={customer.id}
                                                 >
                                                     <td>
                                                         <div className="product-info">
@@ -633,11 +631,13 @@ function Credit() {
                                                         )}
                                                     </td>
 
-                                                    <td>
-                                                        <div className="action-group">
+                                                    <td className="credit-actions-cell">
+                                                        <div className="credit-action-group">
                                                             <button
                                                                 type="button"
-                                                                className="action-btn view"
+                                                                className="credit-action-btn credit-action-view"
+                                                                data-tooltip="View credit history"
+                                                                aria-label="View credit history"
                                                                 onClick={() =>
                                                                     openHistory(
                                                                         customer
@@ -647,11 +647,12 @@ function Credit() {
                                                                 View
                                                             </button>
 
-                                                            {balance >
-                                                                0 && (
+                                                            {balance > 0 && (
                                                                 <button
                                                                     type="button"
-                                                                    className="action-btn"
+                                                                    className="credit-action-btn credit-action-payment"
+                                                                    data-tooltip="Record payment"
+                                                                    aria-label="Record payment"
                                                                     onClick={() =>
                                                                         openPaymentModal(
                                                                             customer
@@ -664,7 +665,9 @@ function Credit() {
 
                                                             <button
                                                                 type="button"
-                                                                className="action-btn edit"
+                                                                className="credit-action-btn credit-action-edit"
+                                                                data-tooltip="Edit customer"
+                                                                aria-label="Edit customer"
                                                                 onClick={() =>
                                                                     openEditCustomer(
                                                                         customer
@@ -678,8 +681,18 @@ function Credit() {
                                                                 type="button"
                                                                 className={
                                                                     isActive
-                                                                        ? "action-btn delete"
-                                                                        : "action-btn edit"
+                                                                        ? "credit-action-btn credit-action-deactivate"
+                                                                        : "credit-action-btn credit-action-activate"
+                                                                }
+                                                                data-tooltip={
+                                                                    isActive
+                                                                        ? "Deactivate customer"
+                                                                        : "Activate customer"
+                                                                }
+                                                                aria-label={
+                                                                    isActive
+                                                                        ? "Deactivate customer"
+                                                                        : "Activate customer"
                                                                 }
                                                                 onClick={() =>
                                                                     openToggleStatus(
@@ -914,8 +927,7 @@ function Credit() {
                                     onChange={(e) =>
                                         setPaymentForm({
                                             ...paymentForm,
-                                            amount: e.target
-                                                .value,
+                                            amount: e.target.value,
                                         })
                                     }
                                     placeholder="0.00"

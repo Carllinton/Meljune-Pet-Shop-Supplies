@@ -1,4 +1,5 @@
 const express = require("express");
+
 const router = express.Router();
 
 const {
@@ -6,7 +7,23 @@ const {
     getAdminById
 } = require("../controllers/adminController");
 
-router.get("/", getAdmins);
-router.get("/:id", getAdminById);
+const authenticateToken = require("../middleware/authMiddleware");
+const authorizeRoles = require("../middleware/roleMiddleware");
+
+
+router.get(
+    "/",
+    authenticateToken,
+    authorizeRoles("admin"),
+    getAdmins
+);
+
+router.get(
+    "/:id",
+    authenticateToken,
+    authorizeRoles("admin"),
+    getAdminById
+);
+
 
 module.exports = router;
