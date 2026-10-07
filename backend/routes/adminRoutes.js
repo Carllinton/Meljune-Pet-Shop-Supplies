@@ -4,7 +4,10 @@ const router = express.Router();
 
 const {
     getAdmins,
-    getAdminById
+    getAdminById,
+    updateAdmin,
+    updateAdminPassword,
+    deleteAdmin
 } = require("../controllers/adminController");
 
 const authenticateToken = require("../middleware/authMiddleware");
@@ -23,6 +26,27 @@ router.get(
     authenticateToken,
     authorizeRoles("admin"),
     getAdminById
+);
+
+router.put(
+    "/:id/password",
+    authenticateToken,
+    authorizeRoles("admin"),
+    updateAdminPassword
+);
+
+router.put(
+    "/:id",
+    authenticateToken,
+    authorizeRoles("admin"),
+    updateAdmin
+);
+
+router.delete(
+    "/:id",
+    authenticateToken,
+    authorizeRoles("admin"),
+    deleteAdmin
 );
 
 
