@@ -4,7 +4,7 @@ function ConfirmDialog({
     open,
     title = "Are you sure?",
     message,
-    confirmLabel = "Delete",
+    confirmLabel = "Confirm",
     loading = false,
     onConfirm,
     onCancel,

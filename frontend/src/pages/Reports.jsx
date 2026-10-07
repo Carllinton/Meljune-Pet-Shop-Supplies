@@ -1457,6 +1457,103 @@ function Reports() {
                                 </tr>
                             </thead>
 
+                            {/* NORMAL REPORT TOTAL */}
+                            {filter !== "expired" &&
+                                filter !== "expiring" &&
+                                filteredProducts.length > 0 && (
+                                    <tfoot
+                                        style={{
+                                            background: "var(--surface-2)",
+                                            fontWeight: 700,
+                                        }}
+                                    >
+                                        <tr>
+                                            <td colSpan="4">
+                                                <strong>
+                                                    TOTAL ({filteredProducts.length} items)
+                                                </strong>
+                                            </td>
+
+                                            <td>
+                                                <strong>
+                                                    {filteredProducts
+                                                        .reduce(
+                                                            (total, product) =>
+                                                                total +
+                                                                getQuantity(product),
+                                                            0
+                                                        )
+                                                        .toLocaleString()}
+                                                </strong>
+                                            </td>
+
+                                            <td>—</td>
+
+                                            <td>—</td>
+
+                                            <td
+                                                className="font-mono"
+                                                style={{
+                                                    color: "var(--primary)",
+                                                }}
+                                            >
+                                                <strong>
+                                                    {formatPeso(
+                                                        filteredProducts.reduce(
+                                                            (total, product) =>
+                                                                total +
+                                                                getQuantity(product) *
+                                                                    getPrice(product),
+                                                            0
+                                                        )
+                                                    )}
+                                                </strong>
+                                            </td>
+
+                                            <td>—</td>
+                                        </tr>
+                                    </tfoot>
+                                )}
+
+                            {/* EXPIRED / EXPIRING TOTAL */}
+                            {(filter === "expired" ||
+                                filter === "expiring") &&
+                                filteredProducts.length > 0 && (
+                                    <tfoot
+                                        style={{
+                                            background: "var(--surface-2)",
+                                            fontWeight: 700,
+                                        }}
+                                    >
+                                        <tr>
+                                            <td colSpan="4">
+                                                <strong>
+                                                    TOTAL ({filteredProducts.length} items)
+                                                </strong>
+                                            </td>
+
+                                            <td>
+                                                <strong>
+                                                    {filteredProducts
+                                                        .reduce(
+                                                            (total, product) =>
+                                                                total +
+                                                                getQuantity(product),
+                                                            0
+                                                        )
+                                                        .toLocaleString()}
+                                                </strong>
+                                            </td>
+
+                                            <td>—</td>
+
+                                            <td>—</td>
+
+                                            <td>—</td>
+                                        </tr>
+                                    </tfoot>
+                                )}
+
                             <tbody>
                                 {filteredProducts.map(
                                     (
@@ -1611,103 +1708,6 @@ function Reports() {
                                     }
                                 )}
                             </tbody>
-
-                            {/* NORMAL REPORT TOTAL */}
-                            {filter !== "expired" &&
-                                filter !== "expiring" &&
-                                filteredProducts.length > 0 && (
-                                    <tfoot
-                                        style={{
-                                            background: "var(--surface-2)",
-                                            fontWeight: 700,
-                                        }}
-                                    >
-                                        <tr>
-                                            <td colSpan="4">
-                                                <strong>
-                                                    TOTAL ({filteredProducts.length} items)
-                                                </strong>
-                                            </td>
-
-                                            <td>
-                                                <strong>
-                                                    {filteredProducts
-                                                        .reduce(
-                                                            (total, product) =>
-                                                                total +
-                                                                getQuantity(product),
-                                                            0
-                                                        )
-                                                        .toLocaleString()}
-                                                </strong>
-                                            </td>
-
-                                            <td>—</td>
-
-                                            <td>—</td>
-
-                                            <td
-                                                className="font-mono"
-                                                style={{
-                                                    color: "var(--primary)",
-                                                }}
-                                            >
-                                                <strong>
-                                                    {formatPeso(
-                                                        filteredProducts.reduce(
-                                                            (total, product) =>
-                                                                total +
-                                                                getQuantity(product) *
-                                                                    getPrice(product),
-                                                            0
-                                                        )
-                                                    )}
-                                                </strong>
-                                            </td>
-
-                                            <td>—</td>
-                                        </tr>
-                                    </tfoot>
-                                )}
-
-                            {/* EXPIRED / EXPIRING TOTAL */}
-                            {(filter === "expired" ||
-                                filter === "expiring") &&
-                                filteredProducts.length > 0 && (
-                                    <tfoot
-                                        style={{
-                                            background: "var(--surface-2)",
-                                            fontWeight: 700,
-                                        }}
-                                    >
-                                        <tr>
-                                            <td colSpan="4">
-                                                <strong>
-                                                    TOTAL ({filteredProducts.length} items)
-                                                </strong>
-                                            </td>
-
-                                            <td>
-                                                <strong>
-                                                    {filteredProducts
-                                                        .reduce(
-                                                            (total, product) =>
-                                                                total +
-                                                                getQuantity(product),
-                                                            0
-                                                        )
-                                                        .toLocaleString()}
-                                                </strong>
-                                            </td>
-
-                                            <td>—</td>
-
-                                            <td>—</td>
-
-                                            <td>—</td>
-                                        </tr>
-                                    </tfoot>
-                                )}
                         </table>
                     )}
                 </div>

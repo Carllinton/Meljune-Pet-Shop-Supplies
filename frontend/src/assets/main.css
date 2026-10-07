@@ -257,12 +257,12 @@ ul { list-style: none; }
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 16px;
+    gap: 18px;
     margin-bottom: 24px;
 }
 .stat-card {
     background: var(--surface); border-radius: var(--radius);
-    padding: 20px; border: 1px solid var(--border);
+    padding: 22px 20px; border: 1px solid var(--border);
     display: flex; align-items: center; gap: 16px;
     box-shadow: var(--shadow);
     transition: transform var(--transition), box-shadow var(--transition);
@@ -297,7 +297,7 @@ ul { list-style: none; }
     display: flex; align-items: center; gap: 8px;
 }
 .card-title i { width: 18px; height: 18px; color: var(--primary); }
-.card-body { padding: 20px; }
+.card-body { padding: 22px 20px; }
 .card-footer {
     padding: 12px 20px; border-top: 1px solid var(--border);
     background: var(--surface-2);
@@ -311,16 +311,21 @@ table { width: 100%; border-collapse: collapse; }
 thead th {
     font-size: .75rem; font-weight: 700; letter-spacing: .05em;
     text-transform: uppercase; color: var(--text-muted);
-    padding: 10px 14px; text-align: left;
+    padding: 12px 16px; text-align: left;
     background: var(--surface-2);
     border-bottom: 1px solid var(--border);
     white-space: nowrap;
 }
 tbody td {
-    padding: 12px 14px; font-size: .87rem;
+    padding: 14px 16px; font-size: .87rem;
     border-bottom: 1px solid var(--border);
     color: var(--text-primary);
     vertical-align: middle;
+}
+tfoot td {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--surface-2);
 }
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover td { background: var(--surface-2); }
@@ -1006,6 +1011,136 @@ canvas { max-width: 100%; }
     background: rgba(255, 255, 255, 0.1);
     border-color: rgba(255, 255, 255, 0.35);
 }
+
+/* =========================================
+   CREDIT MANAGEMENT - ACTIONS
+========================================= */
+
+.credit-actions-header {
+    text-align: center;
+    white-space: nowrap;
+}
+
+.credit-actions-cell {
+    text-align: center;
+    vertical-align: middle;
+    min-width: 280px;
+}
+
+.credit-action-group {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.credit-action-btn {
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease,
+        transform 0.1s ease;
+    white-space: nowrap;
+}
+
+.credit-action-btn:hover {
+    transform: translateY(-1px);
+}
+
+.credit-action-btn:active {
+    transform: translateY(0);
+}
+
+/* View */
+.credit-action-view {
+    background: #f1f5f9;
+    color: #334155;
+    border-color: #cbd5e1;
+}
+
+.credit-action-view:hover {
+    background: #e2e8f0;
+    border-color: #94a3b8;
+}
+
+/* Payment */
+.credit-action-payment {
+    background: #ecfdf5;
+    color: #047857;
+    border-color: #a7f3d0;
+}
+
+.credit-action-payment:hover {
+    background: #d1fae5;
+    border-color: #6ee7b7;
+}
+
+/* Edit */
+.credit-action-edit {
+    background: #eff6ff;
+    color: #2563eb;
+    border-color: #bfdbfe;
+}
+
+.credit-action-edit:hover {
+    background: #dbeafe;
+    border-color: #93c5fd;
+}
+
+/* Deactivate */
+.credit-action-deactivate {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #fecaca;
+}
+
+.credit-action-deactivate:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+}
+
+/* Activate */
+.credit-action-activate {
+    background: #f0fdf4;
+    color: #16a34a;
+    border-color: #bbf7d0;
+}
+
+.credit-action-activate:hover {
+    background: #dcfce7;
+    border-color: #86efac;
+}
+
+/* Keyboard focus */
+.credit-action-btn:focus-visible {
+    outline: 2px solid var(--primary-color, #2563eb);
+    outline-offset: 2px;
+}
+
+/* Smaller screens */
+@media (max-width: 900px) {
+    .credit-actions-cell {
+        min-width: 220px;
+    }
+
+    .credit-action-group {
+        justify-content: flex-start;
+    }
+
+    .credit-action-btn {
+        padding: 5px 8px;
+        font-size: 11px;
+    }
+}
+
 
 /* =========================================================
    MERGED LEGACY STYLES
