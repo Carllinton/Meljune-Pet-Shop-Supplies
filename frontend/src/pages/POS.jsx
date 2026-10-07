@@ -1285,40 +1285,6 @@ function POS() {
                                         </strong>
                                     </div>
 
-                                    {/* DISCOUNT */}
-
-                                    <div
-                                        className="form-group"
-                                        style={{
-                                            marginTop:
-                                                "14px",
-                                        }}
-                                    >
-                                        <label className="form-label">
-                                            Discount
-                                        </label>
-
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            className="form-control"
-                                            placeholder="0.00"
-                                            value={
-                                                payment.discount
-                                            }
-                                            onChange={(
-                                                e
-                                            ) =>
-                                                handleDiscountChange(
-                                                    e
-                                                        .target
-                                                        .value
-                                                )
-                                            }
-                                        />
-                                    </div>
-
                                     <div
                                         style={{
                                             display:
