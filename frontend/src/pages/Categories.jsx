@@ -3,6 +3,8 @@ import api from "../services/api";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { getErrorMessage } from "../utils/format";
 import { getUser } from "../services/auth";
+import editIcon from "../assets/icons/pencil.png";
+import deleteIcon from "../assets/icons/trash.png";
 
 const API_BASE_URL = "http://localhost:5000";
 
@@ -677,7 +679,12 @@ function Categories() {
 
                     {/* PRODUCT COUNT */}
 
-                    <div className="flex items-center gap-8">
+                    <div
+                      className="flex items-center gap-8"
+                      style={{
+                        justifyContent: "space-between",
+                      }}
+                    >
 
                       <span className="chip chip-primary">
 
@@ -689,6 +696,34 @@ function Categories() {
                           : "products"}
 
                       </span>
+
+                      {isAdmin && (
+                        <div className="action-group">
+                          <button
+                            type="button"
+                            className="action-btn action-btn-edit"
+                            onClick={() =>
+                              openEditModal(category)
+                            }
+                            aria-label={`Edit ${category.name}`}
+                            title={`Edit ${category.name}`}
+                          >
+                            <img src={editIcon} alt="" aria-hidden="true" />
+                          </button>
+
+                          <button
+                            type="button"
+                            className="action-btn action-btn-delete"
+                            onClick={() =>
+                              askDelete(category)
+                            }
+                            aria-label={`Delete ${category.name}`}
+                            title={`Delete ${category.name}`}
+                          >
+                            <img src={deleteIcon} alt="" aria-hidden="true" />
+                          </button>
+                        </div>
+                      )}
 
                     </div>
 

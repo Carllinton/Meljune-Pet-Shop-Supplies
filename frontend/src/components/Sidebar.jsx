@@ -10,6 +10,8 @@ import productsIcon from "../assets/icons/products.png";
 import reportIcon from "../assets/icons/report.png";
 import settingsIcon from "../assets/icons/settings.png";
 import suppliersIcon from "../assets/icons/suppliers.png";
+import logo from "../assets/logos/meljune-logo.png";
+import darkModeLogo from "../assets/logos/log.png";
 
 function Sidebar() {
     const navigate = useNavigate();
@@ -113,6 +115,8 @@ function Sidebar() {
             <div className="sidebar-header">
 
                 <div className="logo">
+
+                    <img src={isDark ? darkModeLogo : logo} alt="Meljune's Pet Supplies" className="logo-img" style ={{ width: "20%", height: "auto" }}/>
 
                     <div className="logo-text">
                         <div className="logo-name">
