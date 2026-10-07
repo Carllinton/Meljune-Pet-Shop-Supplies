@@ -821,12 +821,7 @@ function Dashboard() {
 
                         <div className="dashboard-chart-panel top-products-panel">
 
-                            <div
-                                style={{
-                                    fontWeight: 700,
-                                    marginBottom: "14px"
-                                }}
-                            >
+                            <div className="top-products-title">
                                 Top Selling Products
                             </div>
 
@@ -850,46 +845,13 @@ function Dashboard() {
                                                 key={
                                                     product.id
                                                 }
-                                                style={{
-                                                    display:
-                                                        "flex",
-                                                    alignItems:
-                                                        "center",
-                                                    gap: "10px",
-                                                    padding:
-                                                        "10px 0",
-                                                    borderBottom:
-                                                        index <
-                                                        topSellingProducts.length -
-                                                            1
-                                                            ? "1px solid var(--border, #E4E8EF)"
-                                                            : "none"
-                                                }}
+                                                className="top-product-row"
                                             >
 
                                                 {/* RANK */}
 
                                                 <div
-                                                    style={{
-                                                        width: "28px",
-                                                        height: "28px",
-                                                        borderRadius:
-                                                            "50%",
-                                                        background:
-                                                            "var(--surface-muted, #F1F5F9)",
-                                                        display:
-                                                            "flex",
-                                                        alignItems:
-                                                            "center",
-                                                        justifyContent:
-                                                            "center",
-                                                        fontWeight:
-                                                            700,
-                                                        fontSize:
-                                                            ".75rem",
-                                                        flexShrink:
-                                                            0
-                                                    }}
+                                                    className={`top-product-rank${index === 0 ? " is-first" : ""}`}
                                                 >
                                                     {index +
                                                         1}
@@ -898,25 +860,16 @@ function Dashboard() {
                                                 {/* PRODUCT */}
 
                                                 <div
-                                                    style={{
-                                                        flex: 1,
-                                                        minWidth: 0
-                                                    }}
+                                                    className="top-product-info"
                                                 >
 
-                                                    <div
-                                                        className="truncate"
-                                                        style={{
-                                                            fontWeight:
-                                                                600
-                                                        }}
-                                                    >
+                                                    <div className="top-product-name truncate">
                                                         {
                                                             product.name
                                                         }
                                                     </div>
 
-                                                    <div className="text-muted text-sm">
+                                                    <div className="top-product-units text-muted text-sm">
                                                         {
                                                             product.quantity_sold
                                                         }{" "}
@@ -929,14 +882,7 @@ function Dashboard() {
                                                 {/* REVENUE */}
 
                                                 <div
-                                                    style={{
-                                                        fontWeight:
-                                                            700,
-                                                        fontSize:
-                                                            ".85rem",
-                                                        whiteSpace:
-                                                            "nowrap"
-                                                    }}
+                                                    className="top-product-revenue"
                                                 >
                                                     {formatPeso(
                                                         product.revenue

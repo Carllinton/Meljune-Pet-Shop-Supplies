@@ -736,6 +736,7 @@ function POS() {
                 ========================================== */}
 
                 <div
+                    className="pos-product-grid"
                     style={{
                         display: "grid",
                         gridTemplateColumns:
@@ -897,14 +898,7 @@ function POS() {
                                         No products found.
                                     </div>
                                 ) : (
-                                    <div
-                                        style={{
-                                            display: "grid",
-                                            gridTemplateColumns:
-                                                "repeat(4, minmax(0, 1fr))",
-                                            gap: "14px",
-                                        }}
-                                    >
+                                    <div className="pos-product-grid">
                                         {filteredProducts.map(
                                             (
                                                 product
@@ -924,6 +918,7 @@ function POS() {
                                                 return (
                                                     <button
                                                         type="button"
+                                                        className="pos-product-card"
                                                         key={
                                                             product.id
                                                         }
@@ -935,38 +930,9 @@ function POS() {
                                                                 product
                                                             )
                                                         }
-                                                        style={{
-                                                            textAlign:
-                                                                "left",
-                                                            border:
-                                                                "1px solid #e5e7eb",
-                                                            borderRadius:
-                                                                "10px",
-                                                            padding:
-                                                                "14px",
-                                                            background:
-                                                                disabled
-                                                                    ? "#f3f4f6"
-                                                                    : "#fff",
-                                                            cursor:
-                                                                disabled
-                                                                    ? "not-allowed"
-                                                                    : "pointer",
-                                                            opacity:
-                                                                disabled
-                                                                    ? 0.6
-                                                                    : 1,
-                                                        }}
                                                     >
                                                         <div
-                                                            style={{
-                                                                fontWeight:
-                                                                    600,
-                                                                marginBottom:
-                                                                    "6px",
-                                                                color:
-                                                                    "#1f2937",
-                                                            }}
+                                                            className="pos-product-name"
                                                         >
                                                             {
                                                                 product.name
@@ -974,14 +940,7 @@ function POS() {
                                                         </div>
 
                                                         <div
-                                                            style={{
-                                                                fontSize:
-                                                                    "12px",
-                                                                color:
-                                                                    "#6b7280",
-                                                                marginBottom:
-                                                                    "10px",
-                                                            }}
+                                                            className="pos-product-code"
                                                         >
                                                             {product.product_code ||
                                                                 "No code"}
@@ -998,10 +957,7 @@ function POS() {
                                                             }}
                                                         >
                                                             <strong
-                                                                style={{
-                                                                    color:
-                                                                        "#FF6B35",
-                                                                }}
+                                                                className="pos-product-price"
                                                             >
                                                                 {formatPeso(
                                                                     product.price
@@ -1015,8 +971,8 @@ function POS() {
                                                                         product.low_stock_threshold ||
                                                                             10
                                                                     )
-                                                                        ? "chip-warning"
-                                                                        : "chip-success"
+                                                                            ? "pos-product-stock chip-warning"
+                                                                            : "pos-product-stock chip-success"
                                                                 }
                                                             >
                                                                 Stock:{" "}
@@ -1087,7 +1043,11 @@ function POS() {
                                                     "10px",
                                             }}
                                         >
-                                        <img src={Cart} alt="Empty Cart" style={{ width: "40px", height: "40px" }} />
+                                        <img
+                                            src={Cart}
+                                            alt="Empty Cart"
+                                            className="pos-empty-cart-icon"
+                                        />
                                         </div>
 
                                         <div>

@@ -1,4 +1,5 @@
 const db = require("../config/database");
+const generateReference = require("../utils/generateReference");
 
 const fs = require("fs");
 const path = require("path");
@@ -236,7 +237,6 @@ const createProduct = async (req, res) => {
     try {
 
         const {
-            product_code,
             name,
             category_id,
             brand,
@@ -266,7 +266,6 @@ const createProduct = async (req, res) => {
         // =============================================
 
         if (
-            !product_code ||
             !name ||
             !category_id ||
             !unit ||
@@ -279,7 +278,7 @@ const createProduct = async (req, res) => {
 
             return res.status(400).json({
                 success: false,
-                message: "Product code, name, category, unit, and price are required"
+                message: "Product name, category, unit, and price are required"
             });
 
         }
@@ -306,32 +305,7 @@ const createProduct = async (req, res) => {
         }
 
 
-        // =============================================
-        // CHECK DUPLICATE PRODUCT CODE
-        // =============================================
-
-        const [existingProduct] = await connection.query(
-            `
-            SELECT id
-            FROM products
-            WHERE product_code = ?
-            `,
-            [product_code.trim()]
-        );
-
-
-        if (existingProduct.length > 0) {
-
-            if (req.file) {
-                deleteImageFile(imagePath);
-            }
-
-            return res.status(409).json({
-                success: false,
-                message: "Product code already exists"
-            });
-
-        }
+        const productCode = generateReference("PRD");
 
 
         // =============================================
@@ -427,7 +401,7 @@ const createProduct = async (req, res) => {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `,
             [
-                product_code.trim(),
+                productCode,
                 name.trim(),
                 category_id,
                 brand || null,
@@ -461,9 +435,10 @@ const createProduct = async (req, res) => {
                     quantity_before,
                     quantity_after,
                     reason,
+                    reference,
                     admin_id
                 )
-                VALUES (?, 'stock_in', ?, ?, ?, ?, ?)
+                VALUES (?, 'stock_in', ?, ?, ?, ?, ?, ?)
                 `,
                 [
                     result.insertId,
@@ -471,7 +446,8 @@ const createProduct = async (req, res) => {
                     0,
                     initialQuantity,
                     "Initial stock",
-                    1
+                    generateReference("STK"),
+                    req.user.id
                 ]
             );
 
@@ -493,7 +469,8 @@ const createProduct = async (req, res) => {
 
             data: {
                 id: result.insertId,
-                image: imagePath
+                image: imagePath,
+                product_code: productCode
             }
 
         });
@@ -562,7 +539,6 @@ const updateProduct = async (req, res) => {
 
 
         const {
-            product_code,
             name,
             category_id,
             brand,
@@ -587,7 +563,8 @@ const updateProduct = async (req, res) => {
             SELECT
                 id,
                 quantity,
-                image
+                image,
+                product_code
             FROM products
             WHERE id = ?
             `,
@@ -624,22 +601,6 @@ const updateProduct = async (req, res) => {
         // =============================================
         // VALIDATION
         // =============================================
-
-        if (!product_code || !product_code.trim()) {
-
-            if (req.file) {
-                deleteImageFile(
-                    `/uploads/products/${req.file.filename}`
-                );
-            }
-
-            return res.status(400).json({
-                success: false,
-                message: "Product code is required"
-            });
-
-        }
-
 
         if (!name || !name.trim()) {
 
@@ -715,41 +676,6 @@ const updateProduct = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "Quantity must be a non-negative whole number"
-            });
-
-        }
-
-
-        // =============================================
-        // CHECK DUPLICATE PRODUCT CODE
-        // =============================================
-
-        const [duplicateProduct] =
-            await connection.query(
-                `
-                SELECT id
-                FROM products
-                WHERE product_code = ?
-                AND id != ?
-                `,
-                [
-                    product_code.trim(),
-                    id
-                ]
-            );
-
-
-        if (duplicateProduct.length > 0) {
-
-            if (req.file) {
-                deleteImageFile(
-                    `/uploads/products/${req.file.filename}`
-                );
-            }
-
-            return res.status(409).json({
-                success: false,
-                message: "Product code already exists"
             });
 
         }
@@ -873,7 +799,7 @@ const updateProduct = async (req, res) => {
             WHERE id = ?
             `,
             [
-                product_code.trim(),
+                existingProduct[0].product_code,
                 name.trim(),
                 category_id,
                 brand || null,
@@ -908,9 +834,10 @@ const updateProduct = async (req, res) => {
                     quantity_before,
                     quantity_after,
                     reason,
+                    reference,
                     admin_id
                 )
-                VALUES (?, 'stock_in', ?, ?, ?, ?, ?)
+                VALUES (?, 'stock_in', ?, ?, ?, ?, ?, ?)
                 `,
                 [
                     id,
@@ -918,7 +845,8 @@ const updateProduct = async (req, res) => {
                     oldQuantity,
                     newQuantity,
                     "Stock increased through product edit",
-                    1
+                    generateReference("STK"),
+                    req.user.id
                 ]
             );
 
@@ -941,9 +869,10 @@ const updateProduct = async (req, res) => {
                     quantity_before,
                     quantity_after,
                     reason,
+                    reference,
                     admin_id
                 )
-                VALUES (?, 'stock_out', ?, ?, ?, ?, ?)
+                VALUES (?, 'stock_out', ?, ?, ?, ?, ?, ?)
                 `,
                 [
                     id,
@@ -951,7 +880,8 @@ const updateProduct = async (req, res) => {
                     oldQuantity,
                     newQuantity,
                     "Stock decreased through product edit",
-                    1
+                    generateReference("STK"),
+                    req.user.id
                 ]
             );
 

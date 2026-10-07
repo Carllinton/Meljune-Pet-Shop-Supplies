@@ -13,6 +13,7 @@ function Inventory() {
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [successMessage, setSuccessMessage] = useState("");
 
     // Filters
     const [search, setSearch] = useState("");
@@ -31,7 +32,6 @@ function Inventory() {
         transaction_type: "stock_in",
         product_id: "",
         quantity: "",
-        reference: "",
         reason: ""
     });
 
@@ -368,7 +368,6 @@ function Inventory() {
             transaction_type: "stock_in",
             product_id: "",
             quantity: "",
-            reference: "",
             reason: ""
         });
 
@@ -465,20 +464,24 @@ function Inventory() {
         try {
             setSaving(true);
 
-            await api.post(
+            const response = await api.post(
                 "/stock-transactions/adjust",
                 {
                     product_id: Number(form.product_id),
                     transaction_type:
                         form.transaction_type,
                     quantity,
-                    reference:
-                        form.reference.trim() || null,
                     reason:
                         form.reason.trim() || null
                 }
             );
 
+            const reference = response.data?.data?.reference;
+            setSuccessMessage(
+                reference
+                    ? `Stock updated successfully. Reference: ${reference}`
+                    : "Stock updated successfully."
+            );
             setShowModal(false);
 
             await loadData();
@@ -679,6 +682,20 @@ function Inventory() {
             {error && (
                 <div className="alert alert-danger">
                     {error}
+                </div>
+            )}
+
+            {successMessage && (
+                <div className="alert alert-success" role="status">
+                    {successMessage}
+                    <button
+                        type="button"
+                        className="alert-dismiss"
+                        aria-label="Dismiss notification"
+                        onClick={() => setSuccessMessage("")}
+                    >
+                        ×
+                    </button>
                 </div>
             )}
 
@@ -1359,20 +1376,18 @@ function Inventory() {
                         </div>
 
                         <div className="form-group">
-                            <label>
-                                Reference
-                            </label>
+                            <label>Reference</label>
 
                             <input
                                 type="text"
-                                name="reference"
                                 className="form-control"
-                                value={form.reference}
-                                onChange={
-                                    handleFormChange
-                                }
-                                placeholder="e.g. PO-001"
+                                placeholder="Generated automatically when saved"
+                                disabled
+                                readOnly
                             />
+                            <span className="form-hint">
+                                A unique reference will be assigned to this stock movement.
+                            </span>
                         </div>
 
                         <div className="form-group">

@@ -469,10 +469,6 @@ function Products() {
       // VALIDATION
       // =============================================
 
-      if (!form.product_code.trim()) {
-        throw new Error("Product code is required.");
-      }
-
       if (!form.name.trim()) {
         throw new Error("Product name is required.");
       }
@@ -494,11 +490,6 @@ function Products() {
       // =============================================
 
       const formData = new FormData();
-
-      formData.append(
-        "product_code",
-        form.product_code.trim()
-      );
 
       formData.append(
         "name",
@@ -585,12 +576,17 @@ function Products() {
 
         setMessage("Product updated successfully.");
       } else {
-        await api.post(
+        const response = await api.post(
           "/products",
           formData
         );
 
-        setMessage("Product added successfully.");
+        const productCode = response.data?.data?.product_code;
+        setMessage(
+          productCode
+            ? `Product added successfully. Code: ${productCode}`
+            : "Product added successfully."
+        );
       }
 
       closeModal();
@@ -1257,21 +1253,20 @@ function Products() {
 
             <div className="form-group">
 
-              <label>
-                Product Code{" "}
-                <span className="req">*</span>
-              </label>
+              <label>Product Code</label>
 
               <input
                 type="text"
-                name="product_code"
                 className="form-control"
-                value={
-                  form.product_code
-                }
-                onChange={handleChange}
-                required
+                value={form.product_code || ""}
+                placeholder="Generated automatically when saved"
+                readOnly
               />
+              <span className="form-hint">
+                {editingId
+                  ? "Product codes are assigned automatically and cannot be changed."
+                  : "A unique product code will be assigned when this product is saved."}
+              </span>
 
             </div>
 

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { getUser, logout } from "../services/auth";
 import categoriesIcon from "../assets/icons/categories.png";
@@ -13,6 +14,9 @@ import suppliersIcon from "../assets/icons/suppliers.png";
 function Sidebar() {
     const navigate = useNavigate();
     const user = getUser();
+    const [isDark, setIsDark] = useState(
+        () => document.documentElement.dataset.theme === "dark"
+    );
 
     const isAdmin = user?.role === "admin";
 
@@ -82,6 +86,13 @@ function Sidebar() {
         navigate("/login", { replace: true });
     };
 
+    const toggleTheme = () => {
+        const nextTheme = isDark ? "light" : "dark";
+        document.documentElement.dataset.theme = nextTheme;
+        localStorage.setItem("pawsstock_theme", nextTheme);
+        setIsDark(nextTheme === "dark");
+    };
+
     // Get initials for avatar
     const displayName = user?.full_name || user?.username || "User";
 
@@ -112,6 +123,17 @@ function Sidebar() {
                             Pet Supplies
                         </span>
                     </div>
+
+                    <button
+                        type="button"
+                        className="theme-toggle"
+                        onClick={toggleTheme}
+                        aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
+                        aria-pressed={isDark}
+                        title={`Switch to ${isDark ? "light" : "dark"} mode`}
+                    >
+                        <span aria-hidden="true">{isDark ? "☀" : "☾"}</span>
+                    </button>
 
                 </div>
 

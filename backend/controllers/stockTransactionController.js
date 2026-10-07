@@ -1,4 +1,5 @@
 const db = require("../config/database");
+const generateReference = require("../utils/generateReference");
 
 const getStockTransactions = async (req, res) => {
     try {
@@ -92,9 +93,7 @@ const adjustStock = async (req, res) => {
         product_id,
         transaction_type,
         quantity,
-        reference,
-        reason,
-        admin_id = 1
+        reason
     } = req.body;
 
     if (!product_id || !transaction_type || quantity === undefined) {
@@ -187,6 +186,8 @@ const adjustStock = async (req, res) => {
         }
 
         // Update product quantity
+        const reference = generateReference("STK");
+
         await connection.query(
             `UPDATE products
              SET quantity = ?
@@ -220,8 +221,8 @@ const adjustStock = async (req, res) => {
                 currentQuantity,
                 newQuantity,
                 reason || null,
-                reference || null,
-                admin_id
+                reference,
+                req.user.id
             ]
         );
 
@@ -235,7 +236,8 @@ const adjustStock = async (req, res) => {
                 transaction_type,
                 quantity: transactionQuantity,
                 quantity_before: currentQuantity,
-                quantity_after: newQuantity
+                quantity_after: newQuantity,
+                reference
             }
         });
 
