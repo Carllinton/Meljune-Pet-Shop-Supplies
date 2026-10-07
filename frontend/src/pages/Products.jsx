@@ -10,6 +10,8 @@ import {
   toDateInput,
 } from "../utils/format";
 
+const API_BASE_URL = "http://localhost:5000";
+
 const EMPTY_FORM = {
   product_code: "",
   name: "",
@@ -24,6 +26,8 @@ const EMPTY_FORM = {
   supplier_id: "",
   description: "",
   status: "active",
+  existingImage: "",
+  imageFile: null,
 };
 
 function Products() {
@@ -49,12 +53,40 @@ function Products() {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
+  const [imagePreview, setImagePreview] = useState("");
+
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  // =============================================
+  // IMAGE URL
+  // =============================================
+
+  const getImageUrl = useCallback((image) => {
+    if (!image) return "";
+
+    if (
+      image.startsWith("http://") ||
+      image.startsWith("https://") ||
+      image.startsWith("blob:")
+    ) {
+      return image;
+    }
+
+    if (image.startsWith("/")) {
+      return `${API_BASE_URL}${image}`;
+    }
+
+    return `${API_BASE_URL}/${image}`;
+  }, []);
+
+  // =============================================
+  // LOAD PRODUCTS
+  // =============================================
 
   const loadProducts = useCallback(async () => {
     try {
@@ -83,6 +115,10 @@ function Products() {
       setLoading(false);
     }
   }, [debouncedSearch]);
+
+  // =============================================
+  // LOAD LOOKUPS
+  // =============================================
 
   const loadLookups = useCallback(async () => {
     try {
@@ -122,6 +158,10 @@ function Products() {
     return () => clearTimeout(timer);
   }, [message]);
 
+  // =============================================
+  // CATEGORY / SUPPLIER NAMES
+  // =============================================
+
   const getCategoryName = useCallback(
     (product) => {
       if (product.category_name) {
@@ -152,6 +192,10 @@ function Products() {
     [suppliers]
   );
 
+  // =============================================
+  // FILTER + SORT
+  // =============================================
+
   const filteredProducts = useMemo(() => {
     let result = [...products];
 
@@ -170,7 +214,9 @@ function Products() {
     }
 
     if (stockFilter === "in_stock") {
-      result = result.filter((product) => Number(product.quantity) > 0);
+      result = result.filter(
+        (product) => Number(product.quantity) > 0
+      );
     }
 
     if (stockFilter === "low_stock") {
@@ -183,7 +229,9 @@ function Products() {
     }
 
     if (stockFilter === "out_of_stock") {
-      result = result.filter((product) => Number(product.quantity) <= 0);
+      result = result.filter(
+        (product) => Number(product.quantity) <= 0
+      );
     }
 
     result.sort((a, b) => {
@@ -226,8 +274,14 @@ function Products() {
           break;
       }
 
-      if (valueA < valueB) return sortOrder === "asc" ? -1 : 1;
-      if (valueA > valueB) return sortOrder === "asc" ? 1 : -1;
+      if (valueA < valueB) {
+        return sortOrder === "asc" ? -1 : 1;
+      }
+
+      if (valueA > valueB) {
+        return sortOrder === "asc" ? 1 : -1;
+      }
+
       return 0;
     });
 
@@ -241,12 +295,23 @@ function Products() {
     categories,
   ]);
 
+  // =============================================
+  // OPEN ADD MODAL
+  // =============================================
+
   const openAddModal = () => {
     setEditingId(null);
-    setForm(EMPTY_FORM);
+    setForm({
+      ...EMPTY_FORM,
+    });
+    setImagePreview("");
     setError("");
     setModalOpen(true);
   };
+
+  // =============================================
+  // OPEN EDIT MODAL
+  // =============================================
 
   const openEditModal = async (id) => {
     try {
@@ -254,6 +319,8 @@ function Products() {
 
       const response = await api.get(`/products/${id}`);
       const product = response?.data?.data ?? response?.data;
+
+      const existingImage = product.image || "";
 
       setEditingId(id);
 
@@ -266,13 +333,18 @@ function Products() {
         unit: product.unit || "pcs",
         price: String(product.price ?? ""),
         cost_price: String(product.cost_price ?? 0),
-        low_stock_threshold: String(product.low_stock_threshold ?? 10),
+        low_stock_threshold: String(
+          product.low_stock_threshold ?? 10
+        ),
         expiration_date: toDateInput(product.expiration_date),
         supplier_id: product.supplier_id || "",
         description: product.description || "",
         status: product.status || "active",
-        existingImage: product.image || "",
+        existingImage,
+        imageFile: null,
       });
+
+      setImagePreview(getImageUrl(existingImage));
 
       setModalOpen(true);
     } catch (err) {
@@ -281,13 +353,24 @@ function Products() {
     }
   };
 
+  // =============================================
+  // CLOSE MODAL
+  // =============================================
+
   const closeModal = () => {
     if (saving) return;
 
     setModalOpen(false);
     setEditingId(null);
-    setForm(EMPTY_FORM);
+    setForm({
+      ...EMPTY_FORM,
+    });
+    setImagePreview("");
   };
+
+  // =============================================
+  // HANDLE FORM CHANGE
+  // =============================================
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -298,12 +381,91 @@ function Products() {
     }));
   };
 
+  // =============================================
+  // HANDLE IMAGE CHANGE
+  // =============================================
+
+  const handleImageChange = (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+    ];
+
+    const maxSize = 5 * 1024 * 1024;
+
+    if (!allowedTypes.includes(file.type)) {
+      setError(
+        "Invalid image format. Only JPG, JPEG, PNG, and WEBP are allowed."
+      );
+
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > maxSize) {
+      setError("Image is too large. Maximum allowed size is 5 MB.");
+
+      event.target.value = "";
+      return;
+    }
+
+    setError("");
+
+    setForm((current) => ({
+      ...current,
+      imageFile: file,
+    }));
+
+    const previewUrl = URL.createObjectURL(file);
+
+    setImagePreview(previewUrl);
+  };
+
+  // =============================================
+  // REMOVE SELECTED IMAGE
+  // =============================================
+
+  const removeSelectedImage = () => {
+    setForm((current) => ({
+      ...current,
+      imageFile: null,
+    }));
+
+    if (form.existingImage) {
+      setImagePreview(getImageUrl(form.existingImage));
+    } else {
+      setImagePreview("");
+    }
+
+    const fileInput = document.getElementById("product-image-input");
+
+    if (fileInput) {
+      fileInput.value = "";
+    }
+  };
+
+  // =============================================
+  // SUBMIT
+  // =============================================
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
     try {
       setSaving(true);
       setError("");
+
+      // =============================================
+      // VALIDATION
+      // =============================================
 
       if (!form.product_code.trim()) {
         throw new Error("Product code is required.");
@@ -325,42 +487,130 @@ function Products() {
         throw new Error("Quantity cannot be negative.");
       }
 
-      const payload = {
-        product_code: form.product_code.trim(),
-        name: form.name.trim(),
-        category_id: Number(form.category_id),
-        brand: form.brand.trim(),
-        quantity: Number(form.quantity),
-        unit: form.unit,
-        price: Number(form.price),
-        cost_price: Number(form.cost_price || 0),
-        low_stock_threshold: Number(form.low_stock_threshold || 10),
-        expiration_date: form.expiration_date || null,
-        supplier_id: form.supplier_id
-          ? Number(form.supplier_id)
-          : null,
-        description: form.description.trim(),
-        status: form.status,
-        image: form.existingImage || null,
-      };
+      // =============================================
+      // CREATE FORMDATA
+      // =============================================
+
+      const formData = new FormData();
+
+      formData.append(
+        "product_code",
+        form.product_code.trim()
+      );
+
+      formData.append(
+        "name",
+        form.name.trim()
+      );
+
+      formData.append(
+        "category_id",
+        String(Number(form.category_id))
+      );
+
+      formData.append(
+        "brand",
+        form.brand.trim()
+      );
+
+      formData.append(
+        "quantity",
+        String(Number(form.quantity))
+      );
+
+      formData.append(
+        "unit",
+        form.unit
+      );
+
+      formData.append(
+        "price",
+        String(Number(form.price))
+      );
+
+      formData.append(
+        "cost_price",
+        String(Number(form.cost_price || 0))
+      );
+
+      formData.append(
+        "low_stock_threshold",
+        String(Number(form.low_stock_threshold || 10))
+      );
+
+      formData.append(
+        "expiration_date",
+        form.expiration_date || ""
+      );
+
+      formData.append(
+        "supplier_id",
+        form.supplier_id
+          ? String(Number(form.supplier_id))
+          : ""
+      );
+
+      formData.append(
+        "description",
+        form.description.trim()
+      );
+
+      formData.append(
+        "status",
+        form.status
+      );
+
+      // =============================================
+      // IMAGE
+      // =============================================
+
+      if (form.imageFile) {
+        formData.append(
+          "image",
+          form.imageFile
+        );
+      }
+
+      // =============================================
+      // SEND REQUEST
+      // =============================================
 
       if (editingId) {
-        await api.put(`/products/${editingId}`, payload);
+        await api.put(
+          `/products/${editingId}`,
+          formData
+        );
+
         setMessage("Product updated successfully.");
       } else {
-        await api.post("/products", payload);
+        await api.post(
+          "/products",
+          formData
+        );
+
         setMessage("Product added successfully.");
       }
 
       closeModal();
+
       await loadProducts();
     } catch (err) {
       console.error("Failed to save product:", err);
-      setError(getErrorMessage(err, "Failed to save product."));
+
+      setError(
+        getErrorMessage(
+          err,
+          "Failed to save product."
+        )
+      );
     } finally {
       setSaving(false);
     }
   };
+
+  // =============================================
+  // DELETE
+  // =============================================
 
   const askDelete = (id) => {
     setDeleteId(id);
@@ -391,11 +641,21 @@ function Products() {
       await loadProducts();
     } catch (err) {
       console.error("Failed to delete product:", err);
-      setError(getErrorMessage(err, "Failed to delete product."));
+
+      setError(
+        getErrorMessage(
+          err,
+          "Failed to delete product."
+        )
+      );
     } finally {
       setDeleting(false);
     }
   };
+
+  // =============================================
+  // FILTER RESET
+  // =============================================
 
   const resetFilters = () => {
     setSearch("");
@@ -404,6 +664,10 @@ function Products() {
     setSortBy("date_added");
     setSortOrder("desc");
   };
+
+  // =============================================
+  // SORT
+  // =============================================
 
   const handleSortChange = (event) => {
     const value = event.target.value;
@@ -426,23 +690,37 @@ function Products() {
     }
   };
 
+  // =============================================
+  // STOCK
+  // =============================================
+
   const getStockClass = (product) => {
     const quantity = Number(product.quantity || 0);
-    const threshold = Number(product.low_stock_threshold ?? 10);
+    const threshold = Number(
+      product.low_stock_threshold ?? 10
+    );
 
     if (quantity <= 0) return "chip-danger";
     if (quantity <= threshold) return "chip-warning";
+
     return "chip-success";
   };
 
   const getStockLabel = (product) => {
     const quantity = Number(product.quantity || 0);
-    const threshold = Number(product.low_stock_threshold ?? 10);
+    const threshold = Number(
+      product.low_stock_threshold ?? 10
+    );
 
     if (quantity <= 0) return "Out of Stock";
     if (quantity <= threshold) return "Low Stock";
+
     return "In Stock";
   };
+
+  // =============================================
+  // DATE
+  // =============================================
 
   const formatDate = (date) => {
     if (!date) return "—";
@@ -470,7 +748,10 @@ function Products() {
     expiry.setHours(0, 0, 0, 0);
 
     const difference =
-      Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+      Math.ceil(
+        (expiry - today) /
+          (1000 * 60 * 60 * 24)
+      );
 
     if (difference < 0) return "chip-danger";
     if (difference <= 30) return "chip-warning";
@@ -480,92 +761,130 @@ function Products() {
 
   return (
     <div className="page-content">
+
       {/* PAGE HEADER */}
       <div className="page-header">
+
         <div className="page-header-left">
+
           <h1>
-            <i data-feather="package"></i>
             Products
           </h1>
 
           <p>
-            Manage your pet shop inventory ({products.length} products)
+            Manage your pet shop inventory (
+            {products.length} products)
           </p>
+
         </div>
 
         <div className="page-actions">
+
           {isAdmin && (
             <button
               type="button"
               className="btn btn-primary"
               onClick={openAddModal}
             >
-              <i data-feather="plus"></i>
               Add Product
             </button>
           )}
+
         </div>
+
       </div>
 
+
       {/* NOTIFICATIONS */}
+
       {message && (
         <div className="alert alert-success">
-          <i data-feather="check-circle"></i>
           <span>{message}</span>
         </div>
       )}
 
       {error && !modalOpen && (
         <div className="alert alert-danger">
-          <i data-feather="alert-circle"></i>
           <span>{error}</span>
         </div>
       )}
 
+
       {/* FILTER CARD */}
+
       <div className="card">
+
         <div className="card-body">
+
           <div className="filter-bar">
+
             <div className="search-box">
-              <i data-feather="search"></i>
 
               <input
                 type="text"
                 className="form-control"
                 placeholder="Search by name, code or brand..."
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) =>
+                  setSearch(event.target.value)
+                }
               />
+
             </div>
+
 
             <select
               className="form-control"
               value={categoryFilter}
               onChange={(event) =>
-                setCategoryFilter(event.target.value)
+                setCategoryFilter(
+                  event.target.value
+                )
               }
             >
-              <option value="">All Categories</option>
+              <option value="">
+                All Categories
+              </option>
 
               {categories.map((category) => (
-                <option key={category.id} value={category.id}>
+                <option
+                  key={category.id}
+                  value={category.id}
+                >
                   {category.name}
                 </option>
               ))}
+
             </select>
+
 
             <select
               className="form-control"
               value={stockFilter}
               onChange={(event) =>
-                setStockFilter(event.target.value)
+                setStockFilter(
+                  event.target.value
+                )
               }
             >
-              <option value="">All Stock</option>
-              <option value="in_stock">In Stock</option>
-              <option value="low_stock">Low Stock</option>
-              <option value="out_of_stock">Out of Stock</option>
+              <option value="">
+                All Stock
+              </option>
+
+              <option value="in_stock">
+                In Stock
+              </option>
+
+              <option value="low_stock">
+                Low Stock
+              </option>
+
+              <option value="out_of_stock">
+                Out of Stock
+              </option>
+
             </select>
+
 
             <select
               className="form-control"
@@ -576,49 +895,74 @@ function Products() {
                   ? "quantity"
                   : sortBy === "price"
                   ? "price"
-                  : sortBy === "expiration_date"
+                  : sortBy ===
+                    "expiration_date"
                   ? "expiry"
                   : "newest"
               }
               onChange={handleSortChange}
             >
-              <option value="newest">Newest First</option>
-              <option value="name_asc">Name A-Z</option>
-              <option value="quantity">Quantity</option>
-              <option value="price">Price</option>
-              <option value="expiry">Expiry Date</option>
+
+              <option value="newest">
+                Newest First
+              </option>
+
+              <option value="name_asc">
+                Name A-Z
+              </option>
+
+              <option value="quantity">
+                Quantity
+              </option>
+
+              <option value="price">
+                Price
+              </option>
+
+              <option value="expiry">
+                Expiry Date
+              </option>
+
             </select>
+
 
             <button
               type="button"
               className="btn btn-secondary btn-sm"
-              onClick={() => {
-                // Filters are applied immediately.
-              }}
             >
-              <i data-feather="filter"></i>
               Filter
             </button>
+
 
             <button
               type="button"
               className="btn btn-ghost btn-sm"
               onClick={resetFilters}
             >
-              <i data-feather="x"></i>
               Reset
             </button>
+
           </div>
+
         </div>
+
       </div>
 
+
       {/* PRODUCTS TABLE */}
+
       <div className="card">
+
         <div className="card-body">
+
           <div className="table-wrap">
+
             <table>
+
               <thead>
+
                 <tr>
+
                   <th>Product</th>
                   <th>Category</th>
                   <th>Brand</th>
@@ -627,180 +971,314 @@ function Products() {
                   <th>Expiry</th>
                   <th>Status</th>
                   <th>Actions</th>
+
                 </tr>
+
               </thead>
 
+
               <tbody>
+
                 {loading ? (
+
                   <tr>
+
                     <td colSpan="8">
+
                       <div className="empty-state">
                         Loading products...
                       </div>
+
                     </td>
+
                   </tr>
+
                 ) : filteredProducts.length === 0 ? (
+
                   <tr>
+
                     <td colSpan="8">
+
                       <div className="empty-state">
-                        <i data-feather="package"></i>
-                        <p>No products found.</p>
+
+                        <p>
+                          No products found.
+                        </p>
+
                       </div>
+
                     </td>
+
                   </tr>
+
                 ) : (
-                  filteredProducts.map((product) => (
-                    <tr key={product.id}>
-                      {/* PRODUCT */}
-                      <td>
-                        <div className="product-info">
-                          {product.image ? (
-                            <img
-                              src={product.image}
-                              alt={product.name}
-                              className="product-thumb"
-                            />
-                          ) : (
-                            <div className="product-thumb product-thumb-placeholder">
-                              <i data-feather="package"></i>
+
+                  filteredProducts.map(
+                    (product) => (
+
+                      <tr key={product.id}>
+
+                        {/* PRODUCT */}
+
+                        <td>
+
+                          <div className="product-info">
+
+                            {product.image ? (
+
+                              <img
+                                src={getImageUrl(
+                                  product.image
+                                )}
+                                alt={
+                                  product.name
+                                }
+                                className="product-thumb"
+                                onError={(
+                                  event
+                                ) => {
+                                  event.currentTarget.style.display =
+                                    "none";
+                                }}
+                              />
+
+                            ) : (
+
+                              <div className="product-thumb product-thumb-placeholder">
+
+                              </div>
+
+                            )}
+
+                            <div>
+
+                              <strong>
+                                {product.name}
+                              </strong>
+
+                              <div className="text-muted text-sm">
+                                {product.product_code ||
+                                  "—"}
+                              </div>
+
                             </div>
+
+                          </div>
+
+                        </td>
+
+
+                        {/* CATEGORY */}
+
+                        <td>
+
+                          <span className="chip chip-info">
+                            {getCategoryName(
+                              product
+                            )}
+                          </span>
+
+                        </td>
+
+
+                        {/* BRAND */}
+
+                        <td>
+                          {product.brand ||
+                            "—"}
+                        </td>
+
+
+                        {/* QUANTITY */}
+
+                        <td>
+                          <strong>
+                            {product.quantity ??
+                              0}
+                          </strong>
+                        </td>
+
+
+                        {/* PRICE */}
+
+                        <td>
+                          {formatPeso(
+                            product.price
+                          )}
+                        </td>
+
+
+                        {/* EXPIRY */}
+
+                        <td>
+
+                          {product.expiration_date ? (
+
+                            <span
+                              className={`chip ${getExpiryClass(
+                                product.expiration_date
+                              )}`}
+                            >
+                              {formatDate(
+                                product.expiration_date
+                              )}
+                            </span>
+
+                          ) : (
+
+                            "—"
+
                           )}
 
-                          <div>
-                            <strong>{product.name}</strong>
+                        </td>
 
-                            <div className="text-muted text-sm">
-                              {product.product_code || "—"}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
 
-                      {/* CATEGORY */}
-                      <td>
-                        <span className="chip chip-info">
-                          {getCategoryName(product)}
-                        </span>
-                      </td>
+                        {/* STATUS */}
 
-                      {/* BRAND */}
-                      <td>
-                        {product.brand || "—"}
-                      </td>
+                        <td>
 
-                      {/* QUANTITY */}
-                      <td>
-                        <strong>{product.quantity ?? 0}</strong>
-                      </td>
-
-                      {/* PRICE */}
-                      <td>
-                        {formatPeso(product.price)}
-                      </td>
-
-                      {/* EXPIRY */}
-                      <td>
-                        {product.expiration_date ? (
                           <span
-                            className={`chip ${getExpiryClass(
-                              product.expiration_date
+                            className={`chip ${getStockClass(
+                              product
                             )}`}
                           >
-                            {formatDate(product.expiration_date)}
+                            {getStockLabel(
+                              product
+                            )}
                           </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
 
-                      {/* STATUS */}
-                      <td>
-                        <span
-                          className={`chip ${getStockClass(
-                            product
-                          )}`}
-                        >
-                          {getStockLabel(product)}
-                        </span>
-                      </td>
-                      
-                      {/* ACTIONS */}
-                      <td>
-                        {isAdmin && (
-                          <div className="action-group">
-                            <button
-                              type="button"
-                              className="action-btn action-btn-edit"
-                              title="Edit Product"
-                              onClick={() => openEditModal(product.id)}
-                            >
-                              <i data-feather="edit-2"></i>
-                            </button>
+                        </td>
 
-                            <button
-                              type="button"
-                              className="action-btn action-btn-delete"
-                              title="Delete Product"
-                              onClick={() => askDelete(product.id)}
-                            >
-                              <i data-feather="trash-2"></i>
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))
+
+                        {/* ACTIONS */}
+
+                        <td>
+
+                          {isAdmin && (
+
+                            <div className="action-group">
+
+                              <button
+                                type="button"
+                                className="action-btn action-btn-edit"
+                                title="Edit Product"
+                                onClick={() =>
+                                  openEditModal(
+                                    product.id
+                                  )
+                                }
+                              >
+                              </button>
+
+
+                              <button
+                                type="button"
+                                className="action-btn action-btn-delete"
+                                title="Delete Product"
+                                onClick={() =>
+                                  askDelete(
+                                    product.id
+                                  )
+                                }
+                              >
+                              </button>
+
+                            </div>
+
+                          )}
+
+                        </td>
+
+                      </tr>
+
+                    )
+                  )
+
                 )}
+
               </tbody>
+
             </table>
+
           </div>
+
         </div>
 
-        {/* FOOTER */}
+
         {!loading && (
+
           <div className="card-footer">
-            Showing {filteredProducts.length} of {products.length}{" "}
-            products
+
+            Showing{" "}
+            {filteredProducts.length} of{" "}
+            {products.length} products
+
           </div>
+
         )}
+
       </div>
 
+
       {/* ADD / EDIT MODAL */}
+
       <Modal
         open={modalOpen}
         onClose={closeModal}
-        title={editingId ? "Edit Product" : "Add Product"}
+        title={
+          editingId
+            ? "Edit Product"
+            : "Add Product"
+        }
         size="large"
       >
+
         <form onSubmit={handleSubmit}>
+
           {error && (
+
             <div className="alert alert-danger">
-              <i data-feather="alert-circle"></i>
+
               <span>{error}</span>
+
             </div>
+
           )}
 
+
           <div className="form-grid form-grid-2">
+
+
             {/* PRODUCT CODE */}
+
             <div className="form-group">
+
               <label>
-                Product Code <span className="req">*</span>
+                Product Code{" "}
+                <span className="req">*</span>
               </label>
 
               <input
                 type="text"
                 name="product_code"
                 className="form-control"
-                value={form.product_code}
+                value={
+                  form.product_code
+                }
                 onChange={handleChange}
                 required
               />
+
             </div>
 
+
             {/* PRODUCT NAME */}
+
             <div className="form-group">
+
               <label>
-                Product Name <span className="req">*</span>
+                Product Name{" "}
+                <span className="req">*</span>
               </label>
 
               <input
@@ -811,36 +1289,55 @@ function Products() {
                 onChange={handleChange}
                 required
               />
+
             </div>
 
+
             {/* CATEGORY */}
+
             <div className="form-group">
+
               <label>
-                Category <span className="req">*</span>
+                Category{" "}
+                <span className="req">*</span>
               </label>
 
               <select
                 name="category_id"
                 className="form-control"
-                value={form.category_id}
+                value={
+                  form.category_id
+                }
                 onChange={handleChange}
                 required
               >
-                <option value="">Select Category</option>
 
-                {categories.map((category) => (
-                  <option
-                    key={category.id}
-                    value={category.id}
-                  >
-                    {category.name}
-                  </option>
-                ))}
+                <option value="">
+                  Select Category
+                </option>
+
+                {categories.map(
+                  (category) => (
+
+                    <option
+                      key={category.id}
+                      value={category.id}
+                    >
+                      {category.name}
+                    </option>
+
+                  )
+                )}
+
               </select>
+
             </div>
 
+
             {/* BRAND */}
+
             <div className="form-group">
+
               <label>Brand</label>
 
               <input
@@ -850,10 +1347,14 @@ function Products() {
                 value={form.brand}
                 onChange={handleChange}
               />
+
             </div>
 
+
             {/* QUANTITY */}
+
             <div className="form-group">
+
               <label>Quantity</label>
 
               <input
@@ -862,17 +1363,24 @@ function Products() {
                 className="form-control"
                 min="0"
                 step="1"
-                value={form.quantity}
+                value={
+                  form.quantity
+                }
                 onChange={handleChange}
               />
 
               <div className="form-hint">
-                Stock changes are automatically recorded.
+                Stock changes are
+                automatically recorded.
               </div>
+
             </div>
 
+
             {/* UNIT */}
+
             <div className="form-group">
+
               <label>Unit</label>
 
               <select
@@ -881,20 +1389,47 @@ function Products() {
                 value={form.unit}
                 onChange={handleChange}
               >
-                <option value="pcs">Pieces</option>
-                <option value="box">Box</option>
-                <option value="pack">Pack</option>
-                <option value="kg">Kilogram</option>
-                <option value="g">Gram</option>
-                <option value="bottle">Bottle</option>
-                <option value="bag">Bag</option>
+
+                <option value="pcs">
+                  Pieces
+                </option>
+
+                <option value="box">
+                  Box
+                </option>
+
+                <option value="pack">
+                  Pack
+                </option>
+
+                <option value="kg">
+                  Kilogram
+                </option>
+
+                <option value="g">
+                  Gram
+                </option>
+
+                <option value="bottle">
+                  Bottle
+                </option>
+
+                <option value="bag">
+                  Bag
+                </option>
+
               </select>
+
             </div>
 
+
             {/* SELLING PRICE */}
+
             <div className="form-group">
+
               <label>
-                Selling Price <span className="req">*</span>
+                Selling Price{" "}
+                <span className="req">*</span>
               </label>
 
               <input
@@ -907,11 +1442,17 @@ function Products() {
                 onChange={handleChange}
                 required
               />
+
             </div>
 
+
             {/* COST PRICE */}
+
             <div className="form-group">
-              <label>Cost Price</label>
+
+              <label>
+                Cost Price
+              </label>
 
               <input
                 type="number"
@@ -919,14 +1460,22 @@ function Products() {
                 className="form-control"
                 min="0"
                 step="0.01"
-                value={form.cost_price}
+                value={
+                  form.cost_price
+                }
                 onChange={handleChange}
               />
+
             </div>
 
+
             {/* LOW STOCK */}
+
             <div className="form-group">
-              <label>Low Stock Threshold</label>
+
+              <label>
+                Low Stock Threshold
+              </label>
 
               <input
                 type="number"
@@ -934,49 +1483,77 @@ function Products() {
                 className="form-control"
                 min="0"
                 step="1"
-                value={form.low_stock_threshold}
+                value={
+                  form.low_stock_threshold
+                }
                 onChange={handleChange}
               />
+
             </div>
 
+
             {/* EXPIRATION */}
+
             <div className="form-group">
-              <label>Expiration Date</label>
+
+              <label>
+                Expiration Date
+              </label>
 
               <input
                 type="date"
                 name="expiration_date"
                 className="form-control"
-                value={form.expiration_date}
+                value={
+                  form.expiration_date
+                }
                 onChange={handleChange}
               />
+
             </div>
 
+
             {/* SUPPLIER */}
+
             <div className="form-group">
+
               <label>Supplier</label>
 
               <select
                 name="supplier_id"
                 className="form-control"
-                value={form.supplier_id}
+                value={
+                  form.supplier_id
+                }
                 onChange={handleChange}
               >
-                <option value="">No Supplier</option>
 
-                {suppliers.map((supplier) => (
-                  <option
-                    key={supplier.id}
-                    value={supplier.id}
-                  >
-                    {supplier.name}
-                  </option>
-                ))}
+                <option value="">
+                  No Supplier
+                </option>
+
+                {suppliers.map(
+                  (supplier) => (
+
+                    <option
+                      key={supplier.id}
+                      value={supplier.id}
+                    >
+                      {supplier.name}
+                    </option>
+
+                  )
+                )}
+
               </select>
+
             </div>
 
+
             {/* STATUS */}
+
             <div className="form-group">
+
               <label>Status</label>
 
               <select
@@ -985,40 +1562,116 @@ function Products() {
                 value={form.status}
                 onChange={handleChange}
               >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
+
+                <option value="active">
+                  Active
+                </option>
+
+                <option value="inactive">
+                  Inactive
+                </option>
+
               </select>
+
             </div>
+
 
             {/* IMAGE */}
+
             <div className="form-group">
-              <label>Product Image</label>
 
-              <div className="image-upload-box">
-                <i data-feather="image"></i>
+              <label>
+                Product Image
+              </label>
 
-                <span>
-                  Image upload can be connected to the backend
-                  later.
-                </span>
+              <input
+                id="product-image-input"
+                type="file"
+                accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                className="form-control"
+                onChange={
+                  handleImageChange
+                }
+              />
+
+              <div className="form-hint">
+                JPG, JPEG, PNG, or WEBP.
+                Maximum 5 MB.
               </div>
+
+
+              {imagePreview && (
+
+                <div
+                  style={{
+                    marginTop: "12px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                  }}
+                >
+
+                  <img
+                    src={imagePreview}
+                    alt="Product preview"
+                    style={{
+                      width: "180px",
+                      height: "180px",
+                      objectFit: "cover",
+                      borderRadius: "8px",
+                      border: "1px solid #ddd",
+                    }}
+                  />
+
+
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={
+                      removeSelectedImage
+                    }
+                    disabled={saving}
+                    style={{
+                      width: "fit-content",
+                    }}
+                  >
+                    Remove Selected Image
+                  </button>
+
+                </div>
+
+              )}
+
             </div>
 
+
             {/* DESCRIPTION */}
+
             <div className="form-group">
-              <label>Description</label>
+
+              <label>
+                Description
+              </label>
 
               <textarea
                 name="description"
                 className="form-control"
                 rows="4"
-                value={form.description}
+                value={
+                  form.description
+                }
                 onChange={handleChange}
               />
+
             </div>
+
           </div>
 
+
+          {/* MODAL FOOTER */}
+
           <div className="modal-footer">
+
             <button
               type="button"
               className="btn btn-ghost"
@@ -1028,35 +1681,54 @@ function Products() {
               Cancel
             </button>
 
+
             <button
               type="submit"
               className="btn btn-primary"
               disabled={saving}
             >
+
               {saving ? (
+
                 "Saving..."
+
               ) : (
+
                 <>
-                  <i data-feather="save"></i>
-                  {editingId ? "Update Product" : "Save Product"}
+
+                  {editingId
+                    ? "Update Product"
+                    : "Save Product"}
                 </>
+
               )}
+
             </button>
+
           </div>
+
         </form>
+
       </Modal>
 
+
       {/* DELETE CONFIRMATION */}
+
       <ConfirmDialog
         open={confirmOpen}
         title="Delete Product"
         message="Are you sure you want to delete this product? This action cannot be undone."
-        confirmText={deleting ? "Deleting..." : "Delete"}
+        confirmText={
+          deleting
+            ? "Deleting..."
+            : "Delete"
+        }
         cancelText="Cancel"
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
         danger
       />
+
     </div>
   );
 }

@@ -5,10 +5,12 @@ function Reports() {
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);
     const [stockTransactions, setStockTransactions] = useState([]);
+    const [sales, setSales] = useState([]);
 
     const [filter, setFilter] = useState("all");
     const [categoryFilter, setCategoryFilter] = useState("");
     const [loading, setLoading] = useState(true);
+    const [activeSection, setActiveSection] = useState("products");
 
     const formatPeso = (value) =>
         `₱${Number(value || 0).toLocaleString("en-PH", {
@@ -137,9 +139,11 @@ function Reports() {
             const [
                 productsResponse,
                 categoriesResponse,
+                salesResponse,
             ] = await Promise.all([
                 api.get("/products"),
                 api.get("/categories"),
+                api.get("/sales"),
             ]);
 
             const productData =
@@ -152,6 +156,11 @@ function Reports() {
                 categoriesResponse?.data ??
                 [];
 
+            const salesData =
+                salesResponse?.data?.data ??
+                salesResponse?.data ??
+                [];
+
             setProducts(
                 Array.isArray(productData)
                     ? productData
@@ -161,6 +170,12 @@ function Reports() {
             setCategories(
                 Array.isArray(categoryData)
                     ? categoryData
+                    : []
+            );
+
+            setSales(
+                Array.isArray(salesData)
+                    ? salesData
                     : []
             );
 
@@ -197,6 +212,7 @@ function Reports() {
             setProducts([]);
             setCategories([]);
             setStockTransactions([]);
+            setSales([]);
         } finally {
             setLoading(false);
         }
@@ -585,6 +601,174 @@ function Reports() {
         return summary;
     }, [stockTransactions]);
 
+    /*
+     * SALES REPORT
+     *
+     * Sales are read directly from the sales table through
+     * GET /sales. The backend already records each completed
+     * POS transaction with total, payment method, customer,
+     * cashier/admin and created_at.
+     */
+    const validSales = useMemo(() => {
+        return sales.filter((sale) => {
+            const total = Number(sale.total || 0);
+            const id = sale.id ?? sale.receipt_no;
+
+            return id !== undefined && id !== null && total >= 0;
+        });
+    }, [sales]);
+
+    const salesSummary = useMemo(() => {
+        const now = new Date();
+
+        const startOfToday = new Date(now);
+        startOfToday.setHours(0, 0, 0, 0);
+
+        const startOfTomorrow = new Date(startOfToday);
+        startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+
+        let totalRevenue = 0;
+        let todayRevenue = 0;
+        let todaySales = 0;
+        let totalDiscount = 0;
+
+        const paymentMethods = {
+            cash: { transactions: 0, revenue: 0 },
+            gcash: { transactions: 0, revenue: 0 },
+            maya: { transactions: 0, revenue: 0 },
+            credit: { transactions: 0, revenue: 0 },
+        };
+
+        validSales.forEach((sale) => {
+            const total = Number(sale.total || 0);
+            const discount = Number(sale.discount || 0);
+
+            totalRevenue += total;
+            totalDiscount += discount;
+
+            const dateValue =
+                sale.created_at ||
+                sale.createdAt ||
+                sale.date;
+
+            const saleDate = dateValue
+                ? new Date(dateValue)
+                : null;
+
+            if (
+                saleDate &&
+                !Number.isNaN(saleDate.getTime()) &&
+                saleDate >= startOfToday &&
+                saleDate < startOfTomorrow
+            ) {
+                todaySales += 1;
+                todayRevenue += total;
+            }
+
+            const method = String(
+                sale.payment_method ||
+                sale.paymentMethod ||
+                "cash"
+            ).toLowerCase();
+
+            if (paymentMethods[method]) {
+                paymentMethods[method].transactions += 1;
+                paymentMethods[method].revenue += total;
+            }
+        });
+
+        return {
+            transactionCount: validSales.length,
+            totalRevenue,
+            todaySales,
+            todayRevenue,
+            totalDiscount,
+            averageSale:
+                validSales.length > 0
+                    ? totalRevenue / validSales.length
+                    : 0,
+            paymentMethods,
+        };
+    }, [validSales]);
+
+    const sortedSales = useMemo(() => {
+        return [...validSales].sort((a, b) => {
+            const dateA = new Date(
+                a.created_at ||
+                a.createdAt ||
+                a.date ||
+                0
+            ).getTime();
+
+            const dateB = new Date(
+                b.created_at ||
+                b.createdAt ||
+                b.date ||
+                0
+            ).getTime();
+
+            return dateB - dateA;
+        });
+    }, [validSales]);
+
+    const formatDateTime = (dateValue) => {
+        if (!dateValue) {
+            return "—";
+        }
+
+        const date = new Date(dateValue);
+
+        if (Number.isNaN(date.getTime())) {
+            return "—";
+        }
+
+        return date.toLocaleString("en-PH", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+        });
+    };
+
+    const formatPaymentMethod = (method) => {
+        const value = String(method || "cash").toLowerCase();
+
+        const labels = {
+            cash: "Cash",
+            gcash: "GCash",
+            maya: "Maya",
+            credit: "Credit",
+        };
+
+        return labels[value] || value;
+    };
+
+    const getPaymentChip = (method) => {
+        const value = String(method || "cash").toLowerCase();
+
+        if (value === "credit") {
+            return "chip-warning";
+        }
+
+        if (value === "gcash" || value === "maya") {
+            return "chip-info";
+        }
+
+        return "chip-success";
+    };
+
+    const getCashierName = (sale) => {
+        return (
+            sale.admin_name ||
+            sale.cashier_name ||
+            sale.full_name ||
+            (sale.admin_id
+                ? `Admin #${sale.admin_id}`
+                : "—")
+        );
+    };
+
     const reportInfo = {
         all: {
             title:
@@ -756,6 +940,34 @@ function Reports() {
                 </div>
             </div>
 
+            {/* REPORT SECTION NAVIGATION */}
+            <div className="card no-print" style={{ marginBottom: 20 }}>
+                <div className="card-body" style={{ padding: "10px 12px" }}>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button
+                            className={`btn ${activeSection === "category" ? "btn-primary" : "btn-ghost"} btn-sm`}
+                            onClick={() => setActiveSection("category")}
+                        >
+                            Category
+                        </button>
+                        <button
+                            className={`btn ${activeSection === "products" ? "btn-primary" : "btn-ghost"} btn-sm`}
+                            onClick={() => setActiveSection("products")}
+                        >
+                            Products
+                        </button>
+                        <button
+                            className={`btn ${activeSection === "sales" ? "btn-primary" : "btn-ghost"} btn-sm`}
+                            onClick={() => setActiveSection("sales")}
+                        >
+                            Sales
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {activeSection === "products" && (
+                <>
             {/* FILTER BAR */}
             <div
                 className="card no-print"
@@ -914,9 +1126,6 @@ function Reports() {
                 }}
             >
                 <div className="stat-card success">
-                    <div className="stat-icon">
-                        ₱
-                    </div>
 
                     <div className="stat-info">
                         <div
@@ -938,9 +1147,6 @@ function Reports() {
                 </div>
 
                 <div className="stat-card info">
-                    <div className="stat-icon">
-                        ₱
-                    </div>
 
                     <div className="stat-info">
                         <div
@@ -962,9 +1168,6 @@ function Reports() {
                 </div>
 
                 <div className="stat-card primary">
-                    <div className="stat-icon">
-                        #
-                    </div>
 
                     <div className="stat-info">
                         <div className="stat-value">
@@ -978,9 +1181,6 @@ function Reports() {
                 </div>
 
                 <div className="stat-card warning">
-                    <div className="stat-icon">
-                        !
-                    </div>
 
                     <div className="stat-info">
                         <div className="stat-value">
@@ -993,9 +1193,12 @@ function Reports() {
                     </div>
                 </div>
             </div>
+                </>
+            )}
+
 
             {/* VALUE BY CATEGORY */}
-            {filter === "all" && (
+            {activeSection === "category" && filter === "all" && (
                 <div
                     className="card"
                     style={{
@@ -1157,7 +1360,8 @@ function Reports() {
             )}
 
             {/* MAIN REPORT TABLE */}
-            <div className="card">
+            {activeSection === "products" && (
+                            <div className="card">
                 <div className="card-header">
                     <span className="card-title">
                         {currentReport.title} (
@@ -1508,8 +1712,372 @@ function Reports() {
                     )}
                 </div>
             </div>
+            )}
+
+            {/* SALES REPORT */}
+            {activeSection === "sales" && (
+            <div
+                className="card"
+                style={{
+                    marginTop: 20,
+                }}
+            >
+                <div className="card-header">
+                    <div>
+                        <span className="card-title">
+                            Sales Report
+                        </span>
+
+                        <div
+                            className="text-muted text-sm"
+                            style={{ marginTop: 4 }}
+                        >
+                            Sales recorded from completed POS transactions
+                        </div>
+                    </div>
+
+                    <span className="chip chip-primary">
+                        {salesSummary.transactionCount} transactions
+                    </span>
+                </div>
+
+                <div className="card-body">
+                    <div
+                        className="stats-grid"
+                        style={{
+                            marginBottom: 20,
+                        }}
+                    >
+                        <div className="stat-card success">
+
+                            <div className="stat-info">
+                                <div className="stat-value">
+                                    {formatPeso(
+                                        salesSummary.totalRevenue
+                                    )}
+                                </div>
+
+                                <div className="stat-label">
+                                    Total Revenue
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="stat-card primary">
+
+                            <div className="stat-info">
+                                <div className="stat-value">
+                                    {formatPeso(
+                                        salesSummary.todayRevenue
+                                    )}
+                                </div>
+
+                                <div className="stat-label">
+                                    Today's Revenue
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="stat-card info">
+
+                            <div className="stat-info">
+                                <div className="stat-value">
+                                    {salesSummary.todaySales.toLocaleString()}
+                                </div>
+
+                                <div className="stat-label">
+                                    Today's Sales
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="stat-card warning">
+
+                            <div className="stat-info">
+                                <div className="stat-value">
+                                    {formatPeso(
+                                        salesSummary.averageSale
+                                    )}
+                                </div>
+
+                                <div className="stat-label">
+                                    Average Sale
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        className="table-wrap"
+                        style={{
+                            marginBottom: 20,
+                        }}
+                    >
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>
+                                        Payment Method
+                                    </th>
+
+                                    <th>
+                                        Transactions
+                                    </th>
+
+                                    <th>
+                                        Revenue
+                                    </th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {Object.entries(
+                                    salesSummary.paymentMethods
+                                ).map(
+                                    ([method, data]) => (
+                                        <tr key={method}>
+                                            <td>
+                                                <span
+                                                    className={`chip ${getPaymentChip(
+                                                        method
+                                                    )}`}
+                                                >
+                                                    {formatPaymentMethod(
+                                                        method
+                                                    )}
+                                                </span>
+                                            </td>
+
+                                            <td>
+                                                {data.transactions.toLocaleString()}
+                                            </td>
+
+                                            <td className="font-mono font-bold">
+                                                {formatPeso(
+                                                    data.revenue
+                                                )}
+                                            </td>
+                                        </tr>
+                                    )
+                                )}
+                            </tbody>
+
+                            <tfoot
+                                style={{
+                                    background:
+                                        "var(--surface-2)",
+                                    fontWeight: 700,
+                                }}
+                            >
+                                <tr>
+                                    <td>
+                                        TOTAL
+                                    </td>
+
+                                    <td>
+                                        {salesSummary.transactionCount.toLocaleString()}
+                                    </td>
+
+                                    <td
+                                        className="font-mono"
+                                        style={{
+                                            color:
+                                                "var(--primary)",
+                                        }}
+                                    >
+                                        {formatPeso(
+                                            salesSummary.totalRevenue
+                                        )}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <div
+                        className="table-wrap"
+                        style={{
+                            maxHeight: 500,
+                            overflowY: "auto",
+                        }}
+                    >
+                        {sortedSales.length === 0 ? (
+                            <div
+                                className="empty-state"
+                                style={{
+                                    padding: "40px",
+                                    textAlign: "center",
+                                }}
+                            >
+                                <p>
+                                    No sales have been recorded yet.
+                                </p>
+                            </div>
+                        ) : (
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>
+                                            Receipt #
+                                        </th>
+
+                                        <th>
+                                            Date / Time
+                                        </th>
+
+                                        <th>
+                                            Customer
+                                        </th>
+
+                                        <th>
+                                            Payment
+                                        </th>
+
+                                        <th>
+                                            Subtotal
+                                        </th>
+
+                                        <th>
+                                            Discount
+                                        </th>
+
+                                        <th>
+                                            Total
+                                        </th>
+
+                                        <th>
+                                            Cashier
+                                        </th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    {sortedSales.map(
+                                        (sale) => (
+                                            <tr
+                                                key={
+                                                    sale.id ||
+                                                    sale.receipt_no
+                                                }
+                                            >
+                                                <td className="font-mono text-sm">
+                                                    {sale.receipt_no ||
+                                                        `#${sale.id}`}
+                                                </td>
+
+                                                <td className="text-sm">
+                                                    {formatDateTime(
+                                                        sale.created_at ||
+                                                            sale.createdAt ||
+                                                            sale.date
+                                                    )}
+                                                </td>
+
+                                                <td>
+                                                    {sale.customer_name ||
+                                                        sale.customer ||
+                                                        "Walk-in Customer"}
+                                                </td>
+
+                                                <td>
+                                                    <span
+                                                        className={`chip ${getPaymentChip(
+                                                            sale.payment_method ||
+                                                                sale.paymentMethod
+                                                        )}`}
+                                                    >
+                                                        {formatPaymentMethod(
+                                                            sale.payment_method ||
+                                                                sale.paymentMethod
+                                                        )}
+                                                    </span>
+                                                </td>
+
+                                                <td className="font-mono">
+                                                    {formatPeso(
+                                                        sale.subtotal
+                                                    )}
+                                                </td>
+
+                                                <td className="font-mono">
+                                                    {formatPeso(
+                                                        sale.discount
+                                                    )}
+                                                </td>
+
+                                                <td className="font-mono font-bold">
+                                                    {formatPeso(
+                                                        sale.total
+                                                    )}
+                                                </td>
+
+                                                <td>
+                                                    {getCashierName(
+                                                        sale
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        )
+                                    )}
+                                </tbody>
+
+                                <tfoot
+                                    style={{
+                                        background:
+                                            "var(--surface-2)",
+                                        fontWeight: 700,
+                                    }}
+                                >
+                                    <tr>
+                                        <td colSpan="4">
+                                            TOTAL
+                                        </td>
+
+                                        <td className="font-mono">
+                                            {formatPeso(
+                                                sortedSales.reduce(
+                                                    (sum, sale) =>
+                                                        sum +
+                                                        Number(
+                                                            sale.subtotal ||
+                                                                0
+                                                        ),
+                                                    0
+                                                )
+                                            )}
+                                        </td>
+
+                                        <td className="font-mono">
+                                            {formatPeso(
+                                                salesSummary.totalDiscount
+                                            )}
+                                        </td>
+
+                                        <td
+                                            className="font-mono"
+                                            style={{
+                                                color:
+                                                    "var(--primary)",
+                                            }}
+                                        >
+                                            {formatPeso(
+                                                salesSummary.totalRevenue
+                                            )}
+                                        </td>
+
+                                        <td>—</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            )}
 
             {/* STOCK MOVEMENT */}
+            {activeSection === "products" && (
             <div
                 className="card"
                 style={{
@@ -1612,7 +2180,10 @@ function Reports() {
                 </div>
             </div>
 
+            )}
+
             {/* QUICK REPORTS */}
+            {activeSection === "products" && (
             <div
                 className="card no-print"
                 style={{
@@ -1702,7 +2273,7 @@ function Reports() {
                         </button>
                     </div>
                 </div>
-            </div>
+            </div>            )}
         </div>
     );
 }

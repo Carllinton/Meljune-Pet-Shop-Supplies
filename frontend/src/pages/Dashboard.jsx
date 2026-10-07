@@ -161,7 +161,7 @@ function Dashboard() {
             ========================================== */}
             <div className="page-header">
                 <div>
-                    <h1>▦ Dashboard</h1>
+                    <h1>Dashboard</h1>
                     <p>
                         Welcome back! Here's what's happening today.
                     </p>
@@ -173,7 +173,7 @@ function Dashboard() {
                         className="btn btn-ghost btn-sm"
                         onClick={() => navigate("/reports")}
                     >
-                        📄 Reports
+                        Reports
                     </button>
 
                     <button
@@ -181,7 +181,7 @@ function Dashboard() {
                         className="btn btn-primary btn-sm"
                         onClick={() => navigate("/products")}
                     >
-                        ＋ Add Product
+                        Add Product
                     </button>
                 </div>
             </div>
@@ -192,7 +192,6 @@ function Dashboard() {
             <div className="stats-grid">
 
                 <div className="stat-card primary">
-                    <div className="stat-icon">📦</div>
 
                     <div className="stat-info">
                         <div className="stat-value">
@@ -208,7 +207,6 @@ function Dashboard() {
                 </div>
 
                 <div className="stat-card success">
-                    <div className="stat-icon">▤</div>
 
                     <div className="stat-info">
                         <div className="stat-value">
@@ -224,7 +222,6 @@ function Dashboard() {
                 </div>
 
                 <div className="stat-card warning">
-                    <div className="stat-icon">⚠</div>
 
                     <div className="stat-info">
                         <div className="stat-value">
@@ -240,7 +237,6 @@ function Dashboard() {
                 </div>
 
                 <div className="stat-card danger">
-                    <div className="stat-icon">✕</div>
 
                     <div className="stat-info">
                         <div className="stat-value">
@@ -256,7 +252,6 @@ function Dashboard() {
                 </div>
 
                 <div className="stat-card info">
-                    <div className="stat-icon">🏷</div>
 
                     <div className="stat-info">
                         <div className="stat-value">
@@ -277,16 +272,6 @@ function Dashboard() {
                         "--primary-light": "var(--success-light)"
                     }}
                 >
-                    <div
-                        className="stat-icon"
-                        style={{
-                            background: "var(--success-light)",
-                            color: "var(--success)"
-                        }}
-                    >
-                        ₱
-                    </div>
-
                     <div className="stat-info">
                         <div
                             className="stat-value"
@@ -314,7 +299,7 @@ function Dashboard() {
                 <div className="card chart-card">
                     <div className="card-header">
                         <span className="card-title">
-                            ▥ Stock Movement (Last 6 Months)
+                            Stock Movement (Last 6 Months)
                         </span>
                     </div>
 
@@ -326,7 +311,6 @@ function Dashboard() {
                     >
                         {monthly.length === 0 ? (
                             <div className="empty-state">
-                                <div>▥</div>
                                 <p>No stock movement data yet.</p>
                             </div>
                         ) : (
@@ -792,7 +776,7 @@ function Dashboard() {
                 <div className="card">
                     <div className="card-header">
                         <span className="card-title">
-                            ⚠ Low Stock Alert
+                            Low Stock Alert
                         </span>
 
                         <button
@@ -925,7 +909,7 @@ function Dashboard() {
                 <div className="card">
                     <div className="card-header">
                         <span className="card-title">
-                            ◉ Recent Transactions
+                            Recent Transactions
                         </span>
 
                         <button
@@ -943,7 +927,6 @@ function Dashboard() {
                         {recentTransactions.length ===
                         0 ? (
                             <div className="empty-state">
-                                <div>▣</div>
                                 <p>
                                     No transactions yet.
                                 </p>
@@ -1039,7 +1022,7 @@ function Dashboard() {
             <div className="card mt-16">
                 <div className="card-header">
                     <span className="card-title">
-                        ▤ Category Stock Overview
+                        Category Stock Overview
                     </span>
                 </div>
 

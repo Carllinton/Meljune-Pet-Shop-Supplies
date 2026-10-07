@@ -4,12 +4,16 @@ import Modal from "../components/Modal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { getUser } from "../services/auth";
 
+const API_BASE_URL = "http://localhost:5000";
+
 const EMPTY_FORM = {
     name: "",
     contact_person: "",
     phone: "",
     email: "",
     address: "",
+    existingImage: "",
+    imageFile: null,
 };
 
 function Suppliers() {
@@ -24,13 +28,45 @@ function Suppliers() {
 
     const [modalOpen, setModalOpen] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState(null);
-    const [form, setForm] = useState(EMPTY_FORM);
+    const [form, setForm] = useState({
+        ...EMPTY_FORM,
+    });
+
+    const [imagePreview, setImagePreview] =
+        useState("");
+
     const [saving, setSaving] = useState(false);
     const [formError, setFormError] = useState("");
 
-    const [confirmOpen, setConfirmOpen] = useState(false);
-    const [supplierToDelete, setSupplierToDelete] = useState(null);
-    const [deleting, setDeleting] = useState(false);
+    const [confirmOpen, setConfirmOpen] =
+        useState(false);
+
+    const [supplierToDelete, setSupplierToDelete] =
+        useState(null);
+
+    const [deleting, setDeleting] =
+        useState(false);
+
+    // ==========================================
+    // IMAGE URL
+    // ==========================================
+    const getImageUrl = (image) => {
+        if (!image) return "";
+
+        if (
+            image.startsWith("http://") ||
+            image.startsWith("https://") ||
+            image.startsWith("blob:")
+        ) {
+            return image;
+        }
+
+        if (image.startsWith("/")) {
+            return `${API_BASE_URL}${image}`;
+        }
+
+        return `${API_BASE_URL}/${image}`;
+    };
 
     // ==========================================
     // LOAD SUPPLIERS
@@ -40,13 +76,24 @@ function Suppliers() {
             setLoading(true);
             setError("");
 
-            const response = await api.get("/suppliers");
+            const response =
+                await api.get("/suppliers");
 
-            const data = response?.data?.data ?? response?.data ?? [];
+            const data =
+                response?.data?.data ??
+                response?.data ??
+                [];
 
-            setSuppliers(Array.isArray(data) ? data : []);
+            setSuppliers(
+                Array.isArray(data)
+                    ? data
+                    : []
+            );
         } catch (err) {
-            console.error("Failed to load suppliers:", err);
+            console.error(
+                "Failed to load suppliers:",
+                err
+            );
 
             setError(
                 err?.response?.data?.message ||
@@ -64,64 +111,108 @@ function Suppliers() {
     // ==========================================
     // SEARCH
     // ==========================================
-    const filteredSuppliers = useMemo(() => {
-        const query = search.trim().toLowerCase();
+    const filteredSuppliers =
+        useMemo(() => {
+            const query =
+                search.trim().toLowerCase();
 
-        if (!query) {
-            return suppliers;
-        }
+            if (!query) {
+                return suppliers;
+            }
 
-        return suppliers.filter((supplier) => {
-            return [
-                supplier.name,
-                supplier.contact_person,
-                supplier.phone,
-                supplier.email,
-                supplier.address,
-            ]
-                .filter(Boolean)
-                .some((value) =>
-                    String(value).toLowerCase().includes(query)
-                );
-        });
-    }, [suppliers, search]);
+            return suppliers.filter(
+                (supplier) => {
+                    return [
+                        supplier.name,
+                        supplier.contact_person,
+                        supplier.phone,
+                        supplier.email,
+                        supplier.address,
+                    ]
+                        .filter(Boolean)
+                        .some((value) =>
+                            String(value)
+                                .toLowerCase()
+                                .includes(
+                                    query
+                                )
+                        );
+                }
+            );
+        }, [suppliers, search]);
 
     // ==========================================
-    // FORM HELPERS
+    // OPEN ADD MODAL
     // ==========================================
     const openAddModal = () => {
         setEditingSupplier(null);
-        setForm(EMPTY_FORM);
+
+        setForm({
+            ...EMPTY_FORM,
+        });
+
+        setImagePreview("");
         setFormError("");
         setModalOpen(true);
     };
 
+    // ==========================================
+    // OPEN EDIT MODAL
+    // ==========================================
     const openEditModal = (supplier) => {
         setEditingSupplier(supplier);
 
+        const existingImage =
+            supplier.image || "";
+
         setForm({
             name: supplier.name || "",
-            contact_person: supplier.contact_person || "",
-            phone: supplier.phone || "",
-            email: supplier.email || "",
-            address: supplier.address || "",
+            contact_person:
+                supplier.contact_person ||
+                "",
+            phone:
+                supplier.phone || "",
+            email:
+                supplier.email || "",
+            address:
+                supplier.address || "",
+            existingImage,
+            imageFile: null,
         });
+
+        setImagePreview(
+            getImageUrl(existingImage)
+        );
 
         setFormError("");
         setModalOpen(true);
     };
 
+    // ==========================================
+    // CLOSE MODAL
+    // ==========================================
     const closeModal = () => {
         if (saving) return;
 
         setModalOpen(false);
         setEditingSupplier(null);
-        setForm(EMPTY_FORM);
+
+        setForm({
+            ...EMPTY_FORM,
+        });
+
+        setImagePreview("");
         setFormError("");
     };
 
+    // ==========================================
+    // FORM CHANGE
+    // ==========================================
     const handleChange = (event) => {
-        const { name, value } = event.target;
+        const {
+            name,
+            value,
+        } = event.target;
 
         setForm((previous) => ({
             ...previous,
@@ -130,15 +221,101 @@ function Suppliers() {
     };
 
     // ==========================================
+    // IMAGE CHANGE
+    // ==========================================
+    const handleImageChange = (event) => {
+        const file =
+            event.target.files?.[0];
+
+        if (!file) return;
+
+        const allowedTypes = [
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/webp",
+        ];
+
+        const maxSize =
+            5 * 1024 * 1024;
+
+        if (
+            !allowedTypes.includes(
+                file.type
+            )
+        ) {
+            setFormError(
+                "Invalid image format. Only JPG, JPEG, PNG, and WEBP are allowed."
+            );
+
+            event.target.value = "";
+            return;
+        }
+
+        if (file.size > maxSize) {
+            setFormError(
+                "Image is too large. Maximum allowed size is 5 MB."
+            );
+
+            event.target.value = "";
+            return;
+        }
+
+        setFormError("");
+
+        setForm((previous) => ({
+            ...previous,
+            imageFile: file,
+        }));
+
+        const previewUrl =
+            URL.createObjectURL(file);
+
+        setImagePreview(previewUrl);
+    };
+
+    // ==========================================
+    // REMOVE SELECTED IMAGE
+    // ==========================================
+    const removeSelectedImage = () => {
+        setForm((previous) => ({
+            ...previous,
+            imageFile: null,
+        }));
+
+        if (form.existingImage) {
+            setImagePreview(
+                getImageUrl(
+                    form.existingImage
+                )
+            );
+        } else {
+            setImagePreview("");
+        }
+
+        const fileInput =
+            document.getElementById(
+                "supplier-image-input"
+            );
+
+        if (fileInput) {
+            fileInput.value = "";
+        }
+    };
+
+    // ==========================================
     // SAVE SUPPLIER
     // ==========================================
     const handleSubmit = async (event) => {
         event.preventDefault();
 
-        const name = form.name.trim();
+        const name =
+            form.name.trim();
 
         if (!name) {
-            setFormError("Supplier name is required.");
+            setFormError(
+                "Supplier name is required."
+            );
             return;
         }
 
@@ -146,30 +323,69 @@ function Suppliers() {
             setSaving(true);
             setFormError("");
 
-            const payload = {
-                name,
-                contact_person: form.contact_person.trim() || null,
-                phone: form.phone.trim() || null,
-                email: form.email.trim() || null,
-                address: form.address.trim() || null,
-            };
+            const formData =
+                new FormData();
+
+            formData.append(
+                "name",
+                name
+            );
+
+            formData.append(
+                "contact_person",
+                form.contact_person.trim() ||
+                    ""
+            );
+
+            formData.append(
+                "phone",
+                form.phone.trim() ||
+                    ""
+            );
+
+            formData.append(
+                "email",
+                form.email.trim() ||
+                    ""
+            );
+
+            formData.append(
+                "address",
+                form.address.trim() ||
+                    ""
+            );
+
+            if (form.imageFile) {
+                formData.append(
+                    "image",
+                    form.imageFile
+                );
+            }
 
             if (editingSupplier) {
                 await api.put(
                     `/suppliers/${editingSupplier.id}`,
-                    payload
+                    formData
                 );
             } else {
-                await api.post("/suppliers", payload);
+                await api.post(
+                    "/suppliers",
+                    formData
+                );
             }
 
             closeModal();
+
             await loadSuppliers();
         } catch (err) {
-            console.error("Failed to save supplier:", err);
+            console.error(
+                "Failed to save supplier:",
+                err
+            );
 
             setFormError(
-                err?.response?.data?.message ||
+                err?.response?.data
+                    ?.message ||
                 "Failed to save supplier."
             );
         } finally {
@@ -181,7 +397,10 @@ function Suppliers() {
     // DELETE SUPPLIER
     // ==========================================
     const askDelete = (supplier) => {
-        setSupplierToDelete(supplier);
+        setSupplierToDelete(
+            supplier
+        );
+
         setConfirmOpen(true);
     };
 
@@ -197,18 +416,25 @@ function Suppliers() {
 
         try {
             setDeleting(true);
+            setError("");
 
-            await api.delete(`/suppliers/${supplierToDelete.id}`);
+            await api.delete(
+                `/suppliers/${supplierToDelete.id}`
+            );
 
             setConfirmOpen(false);
             setSupplierToDelete(null);
 
             await loadSuppliers();
         } catch (err) {
-            console.error("Failed to delete supplier:", err);
+            console.error(
+                "Failed to delete supplier:",
+                err
+            );
 
             setError(
-                err?.response?.data?.message ||
+                err?.response?.data
+                    ?.message ||
                 "Failed to delete supplier."
             );
         } finally {
@@ -216,139 +442,210 @@ function Suppliers() {
         }
     };
 
-    // ==========================================
-    // RENDER
-    // ==========================================
     return (
         <>
             {/* PAGE HEADER */}
+
             <div className="page-header">
+
                 <div className="page-header-left">
+
                     <h1>
-                        <i data-feather="truck"></i>
                         Suppliers
                     </h1>
 
                     <p>
                         Manage your product suppliers
                     </p>
+
                 </div>
 
                 <div className="page-actions">
+
                     {isAdmin && (
                         <button
                             className="btn btn-primary"
-                            onClick={openAddModal}
+                            onClick={
+                                openAddModal
+                            }
                         >
-                            <i data-feather="plus"></i>
                             Add Supplier
                         </button>
                     )}
+
                 </div>
+
             </div>
 
+
             {/* ERROR */}
+
             {error && (
                 <div
                     className="chip chip-danger"
                     style={{
-                        marginBottom: "16px",
-                        padding: "10px 16px",
-                        borderRadius: "8px",
-                        display: "block",
+                        marginBottom:
+                            "16px",
+                        padding:
+                            "10px 16px",
+                        borderRadius:
+                            "8px",
+                        display:
+                            "block",
                     }}
                 >
                     {error}
                 </div>
             )}
 
+
             {/* SEARCH */}
+
             <div
                 className="card"
-                style={{ marginBottom: "16px" }}
+                style={{
+                    marginBottom:
+                        "16px",
+                }}
             >
+
                 <div
                     className="card-body"
-                    style={{ padding: "14px 16px" }}
+                    style={{
+                        padding:
+                            "14px 16px",
+                    }}
                 >
+
                     <div className="search-box">
-                        <i data-feather="search"></i>
 
                         <input
                             type="text"
                             placeholder="Search suppliers, contacts, phone or email..."
                             value={search}
                             onChange={(e) =>
-                                setSearch(e.target.value)
+                                setSearch(
+                                    e.target.value
+                                )
                             }
                         />
+
                     </div>
+
                 </div>
+
             </div>
 
+
             {/* SUPPLIER TABLE */}
+
             <div className="card">
+
                 <div className="card-header">
+
                     <div>
+
                         <div className="card-title">
                             Suppliers
                         </div>
 
                         <p
                             className="text-muted text-sm"
-                            style={{ marginTop: "4px" }}
+                            style={{
+                                marginTop:
+                                    "4px",
+                            }}
                         >
-                            {filteredSuppliers.length} of{" "}
-                            {suppliers.length} suppliers
+                            {
+                                filteredSuppliers.length
+                            }{" "}
+                            of{" "}
+                            {
+                                suppliers.length
+                            }{" "}
+                            suppliers
                         </p>
+
                     </div>
+
                 </div>
 
+
                 <div className="table-wrap">
+
                     <table>
+
                         <thead>
+
                             <tr>
-                                <th>Supplier</th>
-                                <th>Contact Person</th>
-                                <th>Phone</th>
-                                <th>Email</th>
-                                <th>Address</th>
-                                <th style={{ width: "110px" }}>
+
+                                <th>
+                                    Supplier
+                                </th>
+
+                                <th>
+                                    Contact Person
+                                </th>
+
+                                <th>
+                                    Phone
+                                </th>
+
+                                <th>
+                                    Email
+                                </th>
+
+                                <th>
+                                    Address
+                                </th>
+
+                                <th
+                                    style={{
+                                        width:
+                                            "110px",
+                                    }}
+                                >
                                     Actions
                                 </th>
+
                             </tr>
+
                         </thead>
 
+
                         <tbody>
+
                             {loading ? (
+
                                 <tr>
+
                                     <td
                                         colSpan="6"
                                         style={{
-                                            textAlign: "center",
-                                            padding: "40px",
+                                            textAlign:
+                                                "center",
+                                            padding:
+                                                "40px",
                                         }}
                                     >
                                         Loading suppliers...
                                     </td>
+
                                 </tr>
+
                             ) : filteredSuppliers.length === 0 ? (
+
                                 <tr>
+
                                     <td
                                         colSpan="6"
                                         style={{
-                                            textAlign: "center",
-                                            padding: "40px",
+                                            textAlign:
+                                                "center",
+                                            padding:
+                                                "40px",
                                         }}
                                     >
-                                        <div
-                                            style={{
-                                                fontSize: "32px",
-                                                marginBottom: "8px",
-                                            }}
-                                        >
-                                            📦
-                                        </div>
 
                                         <strong>
                                             No suppliers found
@@ -357,156 +654,253 @@ function Suppliers() {
                                         <p
                                             className="text-muted text-sm"
                                             style={{
-                                                marginTop: "4px",
+                                                marginTop:
+                                                    "4px",
                                             }}
                                         >
                                             {search
                                                 ? "Try a different search."
                                                 : "Add your first supplier to get started."}
                                         </p>
+
                                     </td>
+
                                 </tr>
+
                             ) : (
-                                filteredSuppliers.map((supplier) => (
-                                    <tr key={supplier.id}>
-                                        {/* SUPPLIER */}
-                                        <td>
-                                            <div
-                                                style={{
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    gap: "12px",
-                                                }}
-                                            >
+
+                                filteredSuppliers.map(
+                                    (supplier) => (
+
+                                        <tr
+                                            key={
+                                                supplier.id
+                                            }
+                                        >
+
+                                            {/* SUPPLIER */}
+
+                                            <td>
+
                                                 <div
-                                                    className="stat-icon"
                                                     style={{
-                                                        width: "42px",
-                                                        height: "42px",
-                                                        minWidth: "42px",
-                                                        borderRadius: "12px",
-                                                        background:
-                                                            "rgba(255, 107, 53, 0.12)",
-                                                        color:
-                                                            "var(--primary)",
+                                                        display:
+                                                            "flex",
+                                                        alignItems:
+                                                            "center",
+                                                        gap:
+                                                            "12px",
                                                     }}
                                                 >
-                                                    <i data-feather="truck"></i>
-                                                </div>
 
-                                                <div>
-                                                    <strong>
-                                                        {supplier.name}
-                                                    </strong>
+                                                    {supplier.image ? (
 
-                                                    <div
-                                                        className="text-muted text-sm"
-                                                        style={{
-                                                            marginTop: "3px",
-                                                        }}
-                                                    >
-                                                        Supplier #{supplier.id}
+                                                        <img
+                                                            src={getImageUrl(
+                                                                supplier.image
+                                                            )}
+                                                            alt={
+                                                                supplier.name
+                                                            }
+                                                            style={{
+                                                                width:
+                                                                    "42px",
+                                                                height:
+                                                                    "42px",
+                                                                minWidth:
+                                                                    "42px",
+                                                                borderRadius:
+                                                                    "12px",
+                                                                objectFit:
+                                                                    "cover",
+                                                            }}
+                                                        />
+
+                                                    ) : null}
+
+                                                    <div>
+
+                                                        <strong>
+                                                            {
+                                                                supplier.name
+                                                            }
+                                                        </strong>
+
+                                                        <div
+                                                            className="text-muted text-sm"
+                                                            style={{
+                                                                marginTop:
+                                                                    "3px",
+                                                            }}
+                                                        >
+                                                            Supplier #
+                                                            {
+                                                                supplier.id
+                                                            }
+                                                        </div>
+
                                                     </div>
+
                                                 </div>
-                                            </div>
-                                        </td>
 
-                                        {/* CONTACT */}
-                                        <td>
-                                            {supplier.contact_person ||
-                                                "—"}
-                                        </td>
+                                            </td>
 
-                                        {/* PHONE */}
-                                        <td>
-                                            {supplier.phone ? (
-                                                <span className="text-sm">
-                                                    {supplier.phone}
-                                                </span>
-                                            ) : (
-                                                <span className="text-muted">
-                                                    —
-                                                </span>
-                                            )}
-                                        </td>
 
-                                        {/* EMAIL */}
-                                        <td>
-                                            {supplier.email ? (
-                                                <span className="text-sm">
-                                                    {supplier.email}
-                                                </span>
-                                            ) : (
-                                                <span className="text-muted">
-                                                    —
-                                                </span>
-                                            )}
-                                        </td>
+                                            {/* CONTACT */}
 
-                                        {/* ADDRESS */}
-                                        <td>
-                                            <span className="text-sm text-muted">
-                                                {supplier.address ||
-                                                    "—"}
-                                            </span>
-                                        </td>
+                                            <td>
+                                                {
+                                                    supplier.contact_person ||
+                                                    "—"
+                                                }
+                                            </td>
 
-                                        {/* ACTIONS */}
-                                        <td>
-                                            {isAdmin && (
-                                                <div className="action-group">
-                                                    <button
-                                                        type="button"
-                                                        className="action-btn action-btn-edit"
-                                                    title="Edit supplier"
-                                                    onClick={() =>
-                                                        openEditModal(
-                                                            supplier
-                                                        )
+
+                                            {/* PHONE */}
+
+                                            <td>
+
+                                                {supplier.phone ? (
+
+                                                    <span className="text-sm">
+                                                        {
+                                                            supplier.phone
+                                                        }
+                                                    </span>
+
+                                                ) : (
+
+                                                    <span className="text-muted">
+                                                        —
+                                                    </span>
+
+                                                )}
+
+                                            </td>
+
+
+                                            {/* EMAIL */}
+
+                                            <td>
+
+                                                {supplier.email ? (
+
+                                                    <span className="text-sm">
+                                                        {
+                                                            supplier.email
+                                                        }
+                                                    </span>
+
+                                                ) : (
+
+                                                    <span className="text-muted">
+                                                        —
+                                                    </span>
+
+                                                )}
+
+                                            </td>
+
+
+                                            {/* ADDRESS */}
+
+                                            <td>
+
+                                                <span className="text-sm text-muted">
+                                                    {
+                                                        supplier.address ||
+                                                        "—"
                                                     }
-                                                >
-                                                    <i data-feather="edit-2"></i>
-                                                </button>
+                                                </span>
 
-                                                <button
-                                                    type="button"
-                                                    className="action-btn action-btn-delete"
-                                                    title="Delete supplier"
-                                                    onClick={() =>
-                                                        askDelete(
-                                                            supplier
-                                                        )
-                                                    }
-                                                >
-                                                    <i data-feather="trash-2"></i>
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))
+                                            </td>
+
+
+                                            {/* ACTIONS */}
+
+                                            <td>
+
+                                                {isAdmin && (
+
+                                                    <div className="action-group">
+
+                                                        <button
+                                                            type="button"
+                                                            className="action-btn action-btn-edit"
+                                                            title="Edit supplier"
+                                                            onClick={() =>
+                                                                openEditModal(
+                                                                    supplier
+                                                                )
+                                                            }
+                                                        >
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            className="action-btn action-btn-delete"
+                                                            title="Delete supplier"
+                                                            onClick={() =>
+                                                                askDelete(
+                                                                    supplier
+                                                                )
+                                                            }
+                                                        >
+                                                        </button>
+
+                                                    </div>
+
+                                                )}
+
+                                            </td>
+
+                                        </tr>
+
+                                    )
+                                )
+
                             )}
+
                         </tbody>
+
                     </table>
+
                 </div>
 
+
                 {!loading &&
-                    filteredSuppliers.length > 0 && (
+                    filteredSuppliers.length >
+                        0 && (
+
                         <div className="card-footer">
+
                             Showing{" "}
+
                             <strong>
-                                {filteredSuppliers.length}
+                                {
+                                    filteredSuppliers.length
+                                }
                             </strong>{" "}
+
                             of{" "}
+
                             <strong>
-                                {suppliers.length}
+                                {
+                                    suppliers.length
+                                }
                             </strong>{" "}
+
                             suppliers
+
                         </div>
+
                     )}
+
             </div>
 
+
             {/* ADD / EDIT MODAL */}
+
             <Modal
                 open={modalOpen}
                 title={
@@ -516,22 +910,39 @@ function Suppliers() {
                 }
                 onClose={closeModal}
             >
-                <form onSubmit={handleSubmit}>
+
+                <form
+                    onSubmit={
+                        handleSubmit
+                    }
+                >
+
                     {formError && (
+
                         <div
                             className="chip chip-danger"
                             style={{
-                                display: "block",
-                                marginBottom: "16px",
-                                padding: "10px 14px",
+                                display:
+                                    "block",
+                                marginBottom:
+                                    "16px",
+                                padding:
+                                    "10px 14px",
                             }}
                         >
                             {formError}
                         </div>
+
                     )}
 
+
                     <div className="form-grid">
+
+
+                        {/* NAME */}
+
                         <div className="form-group">
+
                             <label>
                                 Supplier Name{" "}
                                 <span className="text-danger">
@@ -544,14 +955,23 @@ function Suppliers() {
                                 name="name"
                                 className="form-control"
                                 placeholder="e.g. PetNutrition Corp"
-                                value={form.name}
-                                onChange={handleChange}
+                                value={
+                                    form.name
+                                }
+                                onChange={
+                                    handleChange
+                                }
                                 required
                                 autoFocus
                             />
+
                         </div>
 
+
+                        {/* CONTACT */}
+
                         <div className="form-group">
+
                             <label>
                                 Contact Person
                             </label>
@@ -561,62 +981,109 @@ function Suppliers() {
                                 name="contact_person"
                                 className="form-control"
                                 placeholder="e.g. Juan Dela Cruz"
-                                value={form.contact_person}
-                                onChange={handleChange}
+                                value={
+                                    form.contact_person
+                                }
+                                onChange={
+                                    handleChange
+                                }
                             />
+
                         </div>
 
+
+                        {/* PHONE */}
+
                         <div className="form-group">
-                            <label>Phone</label>
+
+                            <label>
+                                Phone
+                            </label>
 
                             <input
                                 type="text"
                                 name="phone"
                                 className="form-control"
                                 placeholder="e.g. 0917-123-4567"
-                                value={form.phone}
-                                onChange={handleChange}
+                                value={
+                                    form.phone
+                                }
+                                onChange={
+                                    handleChange
+                                }
                             />
+
                         </div>
 
+
+                        {/* EMAIL */}
+
                         <div className="form-group">
-                            <label>Email</label>
+
+                            <label>
+                                Email
+                            </label>
 
                             <input
                                 type="email"
                                 name="email"
                                 className="form-control"
                                 placeholder="supplier@example.com"
-                                value={form.email}
-                                onChange={handleChange}
+                                value={
+                                    form.email
+                                }
+                                onChange={
+                                    handleChange
+                                }
                             />
+
                         </div>
+
+                        {/* ADDRESS */}
 
                         <div
                             className="form-group"
                             style={{
-                                gridColumn: "1 / -1",
+                                gridColumn:
+                                    "1 / -1",
                             }}
                         >
-                            <label>Address</label>
+
+                            <label>
+                                Address
+                            </label>
 
                             <textarea
                                 name="address"
                                 className="form-control"
                                 rows="3"
                                 placeholder="Supplier address..."
-                                value={form.address}
-                                onChange={handleChange}
+                                value={
+                                    form.address
+                                }
+                                onChange={
+                                    handleChange
+                                }
                             />
+
                         </div>
+
                     </div>
 
+
+                    {/* FOOTER */}
+
                     <div className="modal-footer">
+
                         <button
                             type="button"
                             className="btn btn-ghost"
-                            onClick={closeModal}
-                            disabled={saving}
+                            onClick={
+                                closeModal
+                            }
+                            disabled={
+                                saving
+                            }
                         >
                             Cancel
                         </button>
@@ -624,24 +1091,37 @@ function Suppliers() {
                         <button
                             type="submit"
                             className="btn btn-primary"
-                            disabled={saving}
+                            disabled={
+                                saving
+                            }
                         >
+
                             {saving ? (
+
                                 "Saving..."
+
                             ) : (
+
                                 <>
-                                    <i data-feather="save"></i>
+
                                     {editingSupplier
                                         ? "Save Changes"
                                         : "Add Supplier"}
                                 </>
+
                             )}
+
                         </button>
+
                     </div>
+
                 </form>
+
             </Modal>
 
+
             {/* DELETE CONFIRMATION */}
+
             <ConfirmDialog
                 open={confirmOpen}
                 title="Delete Supplier"
@@ -650,10 +1130,17 @@ function Suppliers() {
                         ? `Delete "${supplierToDelete.name}"? Products assigned to this supplier may lose their supplier reference.`
                         : "Delete this supplier?"
                 }
-                onCancel={cancelDelete}
-                onConfirm={handleDelete}
-                loading={deleting}
+                onCancel={
+                    cancelDelete
+                }
+                onConfirm={
+                    handleDelete
+                }
+                loading={
+                    deleting
+                }
             />
+
         </>
     );
 }

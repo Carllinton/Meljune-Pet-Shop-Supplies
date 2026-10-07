@@ -669,9 +669,6 @@ function Inventory() {
             {/* CURRENT INVENTORY STATS */}
             <div className="stats-grid">
                 <div className="stat-card primary">
-                    <div className="stat-icon">
-                        #
-                    </div>
 
                     <div className="stat-info">
                         <div className="stat-value">
@@ -687,9 +684,6 @@ function Inventory() {
                 </div>
 
                 <div className="stat-card success">
-                    <div className="stat-icon">
-                        #
-                    </div>
 
                     <div className="stat-info">
                         <div className="stat-value">
@@ -703,9 +697,6 @@ function Inventory() {
                 </div>
 
                 <div className="stat-card warning">
-                    <div className="stat-icon">
-                        !
-                    </div>
 
                     <div className="stat-info">
                         <div className="stat-value">
@@ -719,9 +710,6 @@ function Inventory() {
                 </div>
 
                 <div className="stat-card danger">
-                    <div className="stat-icon">
-                        0
-                    </div>
 
                     <div className="stat-info">
                         <div className="stat-value">
@@ -881,9 +869,6 @@ function Inventory() {
                 }}
             >
                 <div className="stat-card success">
-                    <div className="stat-icon">
-                        +
-                    </div>
 
                     <div className="stat-info">
                         <div className="stat-value">
@@ -897,9 +882,6 @@ function Inventory() {
                 </div>
 
                 <div className="stat-card danger">
-                    <div className="stat-icon">
-                        −
-                    </div>
 
                     <div className="stat-info">
                         <div className="stat-value">
@@ -913,9 +895,6 @@ function Inventory() {
                 </div>
 
                 <div className="stat-card warning">
-                    <div className="stat-icon">
-                        ↕
-                    </div>
 
                     <div className="stat-info">
                         <div className="stat-value">
@@ -929,9 +908,6 @@ function Inventory() {
                 </div>
 
                 <div className="stat-card primary">
-                    <div className="stat-icon">
-                        =
-                    </div>
 
                     <div className="stat-info">
                         <div className="stat-value">

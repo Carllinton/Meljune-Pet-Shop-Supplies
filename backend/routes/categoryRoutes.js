@@ -13,6 +13,11 @@ const {
 const authenticateToken = require("../middleware/authMiddleware");
 const authorizeRoles = require("../middleware/roleMiddleware");
 
+const createImageUploader =
+    require("../middleware/uploadMiddleware");
+
+const uploadCategoryImage =
+    createImageUploader("categories", "category");
 
 // =============================================
 // VIEW CATEGORIES
@@ -43,6 +48,7 @@ router.post(
     "/",
     authenticateToken,
     authorizeRoles("admin"),
+    uploadCategoryImage.single("image"),
     createCategory
 );
 
@@ -50,6 +56,7 @@ router.put(
     "/:id",
     authenticateToken,
     authorizeRoles("admin"),
+    uploadCategoryImage.single("image"),
     updateCategory
 );
 

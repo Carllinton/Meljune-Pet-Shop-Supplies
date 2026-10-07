@@ -1,5 +1,14 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { getUser, logout } from "../services/auth";
+import categoriesIcon from "../assets/icons/categories.png";
+import creditsIcon from "../assets/icons/credits.png";
+import dashboardIcon from "../assets/icons/dashboard.png";
+import inventoryIcon from "../assets/icons/inventory.png";
+import posIcon from "../assets/icons/POS.png";
+import productsIcon from "../assets/icons/products.png";
+import reportIcon from "../assets/icons/report.png";
+import settingsIcon from "../assets/icons/settings.png";
+import suppliersIcon from "../assets/icons/suppliers.png";
 
 function Sidebar() {
     const navigate = useNavigate();
@@ -11,55 +20,55 @@ function Sidebar() {
         {
             name: "Dashboard",
             path: "/dashboard",
-            icon: "▦",
+            icon: dashboardIcon,
             roles: ["admin", "cashier"],
         },
         {
             name: "Products",
             path: "/products",
-            icon: "▣",
+            icon: productsIcon,
             roles: ["admin", "cashier"],
         },
         {
             name: "Categories",
             path: "/categories",
-            icon: "◈",
+            icon: categoriesIcon,
             roles: ["admin", "cashier"],
         },
         {
             name: "Suppliers",
             path: "/suppliers",
-            icon: "♙",
+            icon: suppliersIcon,
             roles: ["admin", "cashier"],
         },
         {
             name: "Inventory",
             path: "/inventory",
-            icon: "▤",
+            icon: inventoryIcon,
             roles: ["admin", "cashier"],
         },
         {
             name: "POS",
             path: "/pos",
-            icon: "▥",
+            icon: posIcon,
             roles: ["admin", "cashier"],
         },
         {
             name: "Credit",
             path: "/credit",
-            icon: "₱",
+            icon: creditsIcon,
             roles: ["admin", "cashier"],
         },
         {
             name: "Reports",
             path: "/reports",
-            icon: "▥",
+            icon: reportIcon,
             roles: ["admin", "cashier"],
         },
         {
             name: "Settings",
             path: "/settings",
-            icon: "⚙",
+            icon: settingsIcon,
             roles: ["admin"],
         },
     ];
@@ -93,10 +102,6 @@ function Sidebar() {
             <div className="sidebar-header">
 
                 <div className="logo">
-
-                    <div className="logo-icon">
-                        🐾
-                    </div>
 
                     <div className="logo-text">
                         <div className="logo-name">
@@ -133,10 +138,11 @@ function Sidebar() {
                                 : "nav-item"
                         }
                     >
-                        <span className="nav-icon">
-                            {item.icon}
-                        </span>
-
+                        <img
+                            src={item.icon}
+                            alt=""
+                            aria-hidden="true"
+                        />
                         <span>
                             {item.name}
                         </span>
@@ -172,10 +178,13 @@ function Sidebar() {
                     type="button"
                     className="logout-btn"
                     onClick={handleLogout}
-                    title="Logout"
                     aria-label="Logout"
                 >
-                    ↪
+                    <img
+                        src="/assets/icons/logout.png"
+                        alt="Logout"
+                        className="logout-icon"
+                    />
                 </button>
 
             </div>

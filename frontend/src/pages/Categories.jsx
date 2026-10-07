@@ -4,11 +4,14 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import { getErrorMessage } from "../utils/format";
 import { getUser } from "../services/auth";
 
+const API_BASE_URL = "http://localhost:5000";
+
 const EMPTY_FORM = {
   name: "",
   description: "",
-  icon: "tag",
   color: "#4CAF50",
+  existingImage: "",
+  imageFile: null,
 };
 
 function Categories() {
@@ -25,7 +28,11 @@ function Categories() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState({
+    ...EMPTY_FORM,
+  });
+
+  const [imagePreview, setImagePreview] = useState("");
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteCategory, setDeleteCategory] = useState(null);
@@ -33,6 +40,27 @@ function Categories() {
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  // ==========================================
+  // IMAGE URL
+  // ==========================================
+  const getImageUrl = useCallback((image) => {
+    if (!image) return "";
+
+    if (
+      image.startsWith("http://") ||
+      image.startsWith("https://") ||
+      image.startsWith("blob:")
+    ) {
+      return image;
+    }
+
+    if (image.startsWith("/")) {
+      return `${API_BASE_URL}${image}`;
+    }
+
+    return `${API_BASE_URL}/${image}`;
+  }, []);
 
   // ==========================================
   // LOAD CATEGORIES + PRODUCTS
@@ -118,14 +146,12 @@ function Categories() {
 
       const productCount = products.filter(
         (product) => {
-          // Match by category ID
           const sameId =
             product.category_id !== undefined &&
             product.category_id !== null &&
             String(product.category_id) ===
               categoryId;
 
-          // Match by category name
           const productCategoryName = String(
             product.category_name ||
               product.category ||
@@ -138,7 +164,6 @@ function Categories() {
             productCategoryName !== "" &&
             productCategoryName === categoryName;
 
-          // Don't count discontinued products
           const isDiscontinued =
             String(product.status || "")
               .toLowerCase() ===
@@ -192,7 +217,10 @@ function Categories() {
   // ==========================================
   const openAddModal = () => {
     setEditingId(null);
-    setForm({ ...EMPTY_FORM });
+    setForm({
+      ...EMPTY_FORM,
+    });
+    setImagePreview("");
     setError("");
     setModalOpen(true);
   };
@@ -203,14 +231,22 @@ function Categories() {
   const openEditModal = (category) => {
     setEditingId(category.id);
 
+    const existingImage =
+      category.image || "";
+
     setForm({
       name: category.name || "",
       description:
         category.description || "",
-      icon: category.icon || "tag",
       color:
         category.color || "#4CAF50",
+      existingImage,
+      imageFile: null,
     });
+
+    setImagePreview(
+      getImageUrl(existingImage)
+    );
 
     setError("");
     setModalOpen(true);
@@ -224,7 +260,10 @@ function Categories() {
 
     setModalOpen(false);
     setEditingId(null);
-    setForm({ ...EMPTY_FORM });
+    setForm({
+      ...EMPTY_FORM,
+    });
+    setImagePreview("");
   };
 
   // ==========================================
@@ -238,6 +277,83 @@ function Categories() {
       ...current,
       [name]: value,
     }));
+  };
+
+  // ==========================================
+  // IMAGE CHANGE
+  // ==========================================
+  const handleImageChange = (event) => {
+    const file =
+      event.target.files?.[0];
+
+    if (!file) return;
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+    ];
+
+    const maxSize =
+      5 * 1024 * 1024;
+
+    if (!allowedTypes.includes(file.type)) {
+      setError(
+        "Invalid image format. Only JPG, JPEG, PNG, and WEBP are allowed."
+      );
+
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > maxSize) {
+      setError(
+        "Image is too large. Maximum allowed size is 5 MB."
+      );
+
+      event.target.value = "";
+      return;
+    }
+
+    setError("");
+
+    setForm((current) => ({
+      ...current,
+      imageFile: file,
+    }));
+
+    const previewUrl =
+      URL.createObjectURL(file);
+
+    setImagePreview(previewUrl);
+  };
+
+  // ==========================================
+  // REMOVE SELECTED IMAGE
+  // ==========================================
+  const removeSelectedImage = () => {
+    setForm((current) => ({
+      ...current,
+      imageFile: null,
+    }));
+
+    if (form.existingImage) {
+      setImagePreview(
+        getImageUrl(form.existingImage)
+      );
+    } else {
+      setImagePreview("");
+    }
+
+    const fileInput =
+      document.getElementById(
+        "category-image-input"
+      );
+
+    if (fileInput) {
+      fileInput.value = "";
+    }
   };
 
   // ==========================================
@@ -256,20 +372,36 @@ function Categories() {
         );
       }
 
-      const payload = {
-        name: form.name.trim(),
-        description:
-          form.description.trim() || null,
-        icon:
-          form.icon.trim() || "tag",
-        color:
-          form.color || "#4CAF50",
-      };
+      const formData =
+        new FormData();
+
+      formData.append(
+        "name",
+        form.name.trim()
+      );
+
+      formData.append(
+        "description",
+        form.description.trim() ||
+          ""
+      );
+
+      formData.append(
+        "color",
+        form.color || "#4CAF50"
+      );
+
+      if (form.imageFile) {
+        formData.append(
+          "image",
+          form.imageFile
+        );
+      }
 
       if (editingId) {
         await api.put(
           `/categories/${editingId}`,
-          payload
+          formData
         );
 
         setMessage(
@@ -278,7 +410,7 @@ function Categories() {
       } else {
         await api.post(
           "/categories",
-          payload
+          formData
         );
 
         setMessage(
@@ -360,61 +492,62 @@ function Categories() {
   return (
     <div className="page-content">
 
-      {/* ==========================================
-          PAGE HEADER
-      ========================================== */}
+      {/* PAGE HEADER */}
       <div className="page-header">
+
         <div className="page-header-left">
+
           <h1>
-            <i data-feather="tag"></i>
             Categories
           </h1>
 
           <p>
             Organize your products into categories
           </p>
+
         </div>
 
         <div className="page-actions">
+
           {isAdmin && (
             <button
               type="button"
               className="btn btn-primary"
               onClick={openAddModal}
             >
-              <i data-feather="plus"></i>
               Add Category
             </button>
           )}
+
         </div>
+
       </div>
 
-      {/* ==========================================
-          NOTIFICATIONS
-      ========================================== */}
+
+      {/* NOTIFICATIONS */}
+
       {message && (
         <div className="alert alert-success">
-          <i data-feather="check-circle"></i>
           <span>{message}</span>
         </div>
       )}
 
       {error && !modalOpen && (
         <div className="alert alert-danger">
-          <i data-feather="alert-circle"></i>
           <span>{error}</span>
         </div>
       )}
 
-      {/* ==========================================
-          SEARCH
-      ========================================== */}
+
+      {/* SEARCH */}
+
       <div className="card">
+
         <div className="card-body">
+
           <div className="filter-bar">
 
             <div className="search-box">
-              <i data-feather="search"></i>
 
               <input
                 type="text"
@@ -427,6 +560,7 @@ function Categories() {
                   )
                 }
               />
+
             </div>
 
             {search && (
@@ -437,54 +571,71 @@ function Categories() {
                   setSearch("")
                 }
               >
-                <i data-feather="x"></i>
                 Reset
               </button>
             )}
 
           </div>
+
         </div>
+
       </div>
 
-      {/* ==========================================
-          CATEGORY GRID
-      ========================================== */}
+
+      {/* CATEGORY GRID */}
+
       {loading ? (
+
         <div className="card">
+
           <div className="card-body">
+
             <div className="empty-state">
               Loading categories...
             </div>
+
           </div>
+
         </div>
+
       ) : filteredCategories.length === 0 ? (
+
         <div className="card">
+
           <div className="card-body">
+
             <div className="empty-state">
-              <i data-feather="tag"></i>
 
               <p>
                 {search
                   ? "No categories found."
                   : "No categories available."}
               </p>
+
             </div>
+
           </div>
+
         </div>
+
       ) : (
+
         <div
           className="grid-3"
           style={{
             gap: "16px",
           }}
         >
+
           {filteredCategories.map(
             (category) => {
+
               const categoryColor =
                 category.color ||
                 "#4CAF50";
 
               return (
+
                 <div
                   className="card"
                   key={category.id}
@@ -493,80 +644,115 @@ function Categories() {
                       `4px solid ${categoryColor}`,
                   }}
                 >
+
                   <div className="card-body">
 
-                    {/* ICON + ACTIONS */}
+                    {/* IMAGE + ACTIONS */}
+
                     <div
                       className="flex justify-between items-center"
                       style={{
-                        marginBottom: "12px",
+                        marginBottom:
+                          "12px",
                       }}
                     >
-                      <div
-                        className="stat-icon"
-                        style={{
-                          width: "44px",
-                          height: "44px",
-                          borderRadius:
-                            "12px",
-                          background:
-                            `${categoryColor}22`,
-                          color:
-                            categoryColor,
-                        }}
-                      >
-                        <i
-                          data-feather={
-                            category.icon ||
-                            "tag"
+
+                      {category.image ? (
+
+                        <img
+                          src={getImageUrl(
+                            category.image
+                          )}
+                          alt={
+                            category.name
                           }
-                        ></i>
-                      </div>
+                          style={{
+                            width: "52px",
+                            height: "52px",
+                            borderRadius:
+                              "12px",
+                            objectFit:
+                              "cover",
+                            border:
+                              `2px solid ${categoryColor}`,
+                          }}
+                        />
+
+                      ) : (
+
+                        <div
+                          
+                          style={{
+                            width: "44px",
+                            height: "44px",
+                            borderRadius:
+                              "12px",
+                            background:
+                              `${categoryColor}22`,
+                            color:
+                              categoryColor,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontWeight: 700,
+                            fontSize: "18px",
+                          }}
+                        >
+                          {(category.name || "C").charAt(0).toUpperCase()}
+                        </div>
+
+                      )}
 
                       {isAdmin && (
+
                         <div className="action-group">
 
                           <button
                             type="button"
                             className="action-btn action-btn-edit"
-                          title="Edit Category"
-                          onClick={() =>
-                            openEditModal(
-                              category
-                            )
-                          }
-                        >
-                          <i data-feather="edit-2"></i>
-                        </button>
+                            title="Edit Category"
+                            onClick={() =>
+                              openEditModal(
+                                category
+                              )
+                            }
+                          >
+                          </button>
 
-                        <button
-                          type="button"
-                          className="action-btn action-btn-delete"
-                          title="Delete Category"
-                          onClick={() =>
-                            askDelete(
-                              category
-                            )
-                          }
-                        >
-                          <i data-feather="trash-2"></i>
+                          <button
+                            type="button"
+                            className="action-btn action-btn-delete"
+                            title="Delete Category"
+                            onClick={() =>
+                              askDelete(
+                                category
+                              )
+                            }
+                          >
                           </button>
 
                         </div>
+
                       )}
+
                     </div>
 
+
                     {/* NAME */}
+
                     <h3
                       style={{
                         fontWeight: 700,
-                        marginBottom: "4px",
+                        marginBottom:
+                          "4px",
                       }}
                     >
                       {category.name}
                     </h3>
 
+
                     {/* DESCRIPTION */}
+
                     <p
                       className="text-sm text-muted"
                       style={{
@@ -578,29 +764,41 @@ function Categories() {
                         "No description"}
                     </p>
 
+
                     {/* PRODUCT COUNT */}
+
                     <div className="flex items-center gap-8">
+
                       <span className="chip chip-primary">
+
                         {category.product_count}{" "}
+
                         {category.product_count ===
                         1
                           ? "product"
                           : "products"}
+
                       </span>
+
                     </div>
 
                   </div>
+
                 </div>
+
               );
             }
           )}
+
         </div>
+
       )}
 
-      {/* ==========================================
-          FOOTER COUNT
-      ========================================== */}
+
+      {/* FOOTER COUNT */}
+
       {!loading && (
+
         <div
           className="text-sm text-muted"
           style={{
@@ -611,30 +809,37 @@ function Categories() {
           {filteredCategories.length} of{" "}
           {categories.length} categories
         </div>
+
       )}
 
-      {/* ==========================================
-          ADD / EDIT MODAL
-      ========================================== */}
+
+      {/* ADD / EDIT MODAL */}
+
       {modalOpen && (
+
         <div
           className="modal-overlay"
           onMouseDown={(event) => {
+
             if (
               event.target ===
               event.currentTarget
             ) {
               closeModal();
             }
+
           }}
         >
+
           <div
             className="modal-box"
             style={{
-              maxWidth: "480px",
+              maxWidth: "520px",
             }}
           >
+
             <div className="modal-header">
+
               <h2>
                 {editingId
                   ? "Edit Category"
@@ -647,29 +852,35 @@ function Categories() {
                 onClick={closeModal}
                 disabled={saving}
               >
-                <i data-feather="x"></i>
               </button>
+
             </div>
 
-            <form
-              onSubmit={handleSubmit}
-            >
+
+            <form onSubmit={handleSubmit}>
+
               <div className="modal-body">
 
                 {error && (
+
                   <div className="alert alert-danger">
-                    <i data-feather="alert-circle"></i>
 
                     <span>
                       {error}
                     </span>
+
                   </div>
+
                 )}
+
 
                 <div className="form-grid">
 
+
                   {/* NAME */}
+
                   <div className="form-group">
+
                     <label>
                       Name{" "}
                       <span className="req">
@@ -688,35 +899,13 @@ function Categories() {
                       required
                       placeholder="e.g. Dog Food"
                     />
-                  </div>
 
-                  {/* ICON */}
-                  <div className="form-group">
-                    <label>
-                      Icon (Feather icon name)
-                    </label>
-
-                    <input
-                      type="text"
-                      name="icon"
-                      className="form-control"
-                      value={form.icon}
-                      onChange={
-                        handleChange
-                      }
-                      placeholder="tag"
-                    />
-
-                    <span className="form-hint">
-                      Use a Feather icon
-                      name such as dog,
-                      cat, tag, heart,
-                      or box.
-                    </span>
                   </div>
 
                   {/* COLOR */}
+
                   <div className="form-group">
+
                     <label>
                       Color
                     </label>
@@ -735,10 +924,90 @@ function Categories() {
                           "pointer",
                       }}
                     />
+
                   </div>
 
-                  {/* DESCRIPTION */}
+
+                  {/* IMAGE */}
+
                   <div className="form-group">
+
+                    <label>
+                      Category Image
+                    </label>
+
+                    <input
+                      id="category-image-input"
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                      className="form-control"
+                      onChange={
+                        handleImageChange
+                      }
+                    />
+
+                    <span className="form-hint">
+                      JPG, JPEG, PNG, or
+                      WEBP. Maximum 5 MB.
+                    </span>
+
+
+                    {imagePreview && (
+
+                      <div
+                        style={{
+                          marginTop: "12px",
+                          display: "flex",
+                          flexDirection:
+                            "column",
+                          gap: "10px",
+                        }}
+                      >
+
+                        <img
+                          src={imagePreview}
+                          alt="Category preview"
+                          style={{
+                            width: "180px",
+                            height: "180px",
+                            objectFit:
+                              "cover",
+                            borderRadius:
+                              "12px",
+                            border:
+                              `2px solid ${
+                                form.color ||
+                                "#4CAF50"
+                              }`,
+                          }}
+                        />
+
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={
+                            removeSelectedImage
+                          }
+                          disabled={saving}
+                          style={{
+                            width:
+                              "fit-content",
+                          }}
+                        >
+                          Remove Selected Image
+                        </button>
+
+                      </div>
+
+                    )}
+
+                  </div>
+
+
+                  {/* DESCRIPTION */}
+
+                  <div className="form-group">
+
                     <label>
                       Description
                     </label>
@@ -755,19 +1024,20 @@ function Categories() {
                       }
                       placeholder="Optional..."
                     />
+
                   </div>
 
                 </div>
+
               </div>
+
 
               <div className="modal-footer">
 
                 <button
                   type="button"
                   className="btn btn-ghost"
-                  onClick={
-                    closeModal
-                  }
+                  onClick={closeModal}
                   disabled={saving}
                 >
                   Cancel
@@ -778,22 +1048,26 @@ function Categories() {
                   className="btn btn-primary"
                   disabled={saving}
                 >
-                  <i data-feather="save"></i>
 
                   {saving
                     ? "Saving..."
                     : "Save"}
+
                 </button>
 
               </div>
+
             </form>
+
           </div>
+
         </div>
+
       )}
 
-      {/* ==========================================
-          DELETE CONFIRMATION
-      ========================================== */}
+
+      {/* DELETE CONFIRMATION */}
+
       <ConfirmDialog
         open={confirmOpen}
         title="Delete Category"

@@ -458,7 +458,6 @@ function Credit() {
 
             <div className="stats-grid">
                 <div className="stat-card">
-                    <div className="stat-icon">👥</div>
 
                     <div className="stat-info">
                         <div className="stat-value">
@@ -472,7 +471,6 @@ function Credit() {
                 </div>
 
                 <div className="stat-card">
-                    <div className="stat-icon">₱</div>
 
                     <div className="stat-info">
                         <div className="stat-value">
@@ -486,7 +484,6 @@ function Credit() {
                 </div>
 
                 <div className="stat-card">
-                    <div className="stat-icon">💳</div>
 
                     <div className="stat-info">
                         <div className="stat-value">

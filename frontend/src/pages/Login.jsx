@@ -79,10 +79,6 @@ function Login() {
             <div className="login-card">
 
                 <div className="login-brand">
-                    <div className="login-logo">
-                        🐾
-                    </div>
-
                     <h1>Meljune</h1>
                     <p>Pet Supplies</p>
                 </div>

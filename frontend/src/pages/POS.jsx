@@ -13,6 +13,7 @@ const EMPTY_PAYMENT = {
 
 function POS() {
     const [products, setProducts] = useState([]);
+    const [categories, setCategories] = useState([]);
     const [customers, setCustomers] = useState([]);
 
     const [loading, setLoading] = useState(true);
@@ -43,15 +44,28 @@ function POS() {
             setLoading(true);
             setError("");
 
-            const [productsResponse, customersResponse] =
-                await Promise.all([
-                    api.get("/products"),
-                    api.get("/customers"),
-                ]);
+            const [
+                productsResponse,
+                categoriesResponse,
+                customersResponse,
+            ] = await Promise.all([
+                api.get("/products"),
+                api.get("/categories"),
+                api.get("/customers"),
+            ]);
 
             const productData =
+                productsResponse?.data?.data?.products ||
                 productsResponse?.data?.data ||
+                productsResponse?.data?.products ||
                 productsResponse?.data ||
+                [];
+
+            const categoryData =
+                categoriesResponse?.data?.data?.categories ||
+                categoriesResponse?.data?.data ||
+                categoriesResponse?.data?.categories ||
+                categoriesResponse?.data ||
                 [];
 
             const customerData =
@@ -59,8 +73,23 @@ function POS() {
                 customersResponse?.data ||
                 [];
 
-            setProducts(Array.isArray(productData) ? productData : []);
-            setCustomers(Array.isArray(customerData) ? customerData : []);
+            setProducts(
+                Array.isArray(productData)
+                    ? productData
+                    : []
+            );
+
+            setCategories(
+                Array.isArray(categoryData)
+                    ? categoryData
+                    : []
+            );
+
+            setCustomers(
+                Array.isArray(customerData)
+                    ? customerData
+                    : []
+            );
         } catch (err) {
             console.error("Error loading POS:", err);
 
@@ -76,31 +105,15 @@ function POS() {
     // =========================================================
     // CATEGORIES
     // =========================================================
-
-    const categories = useMemo(() => {
-        const categoryMap = new Map();
-
-        products.forEach((product) => {
-            const id =
-                product.category_id ??
-                product.categoryId ??
-                null;
-
-            const name =
-                product.category_name ||
-                product.category ||
-                "Uncategorized";
-
-            if (!categoryMap.has(id)) {
-                categoryMap.set(id, {
-                    id,
-                    name,
-                });
-            }
-        });
-
-        return Array.from(categoryMap.values());
-    }, [products]);
+    //
+    // Categories are loaded directly from the categories table.
+    // Do NOT build the category list from products because that
+    // causes categories to disappear when their products are not
+    // included in the current product response.
+    //
+    // The category ID is used for filtering so the selected
+    // category always matches products.category_id.
+    // =========================================================
 
     // =========================================================
     // FILTER PRODUCTS
@@ -109,32 +122,88 @@ function POS() {
     const filteredProducts = useMemo(() => {
         const keyword = search.trim().toLowerCase();
 
-        return products.filter((product) => {
-            const matchesSearch =
-                !keyword ||
-                String(product.name || "")
-                    .toLowerCase()
-                    .includes(keyword) ||
-                String(product.product_code || "")
-                    .toLowerCase()
-                    .includes(keyword) ||
-                String(product.brand || "")
-                    .toLowerCase()
-                    .includes(keyword);
+        const selectedCategoryObject = categories.find(
+            (category) =>
+                String(category.id) ===
+                String(selectedCategory)
+        );
 
-            const productCategoryId =
-                product.category_id ??
-                product.categoryId ??
-                null;
+        const selectedCategoryName = String(
+            selectedCategoryObject?.name || ""
+        )
+            .trim()
+            .toLowerCase();
 
-            const matchesCategory =
-                selectedCategory === "all" ||
-                String(productCategoryId) ===
-                    String(selectedCategory);
+        return products
+            .filter((product) => {
+                const matchesSearch =
+                    !keyword ||
+                    String(product.name || "")
+                        .toLowerCase()
+                        .includes(keyword) ||
+                    String(product.product_code || "")
+                        .toLowerCase()
+                        .includes(keyword) ||
+                    String(product.brand || "")
+                        .toLowerCase()
+                        .includes(keyword);
 
-            return matchesSearch && matchesCategory;
-        });
-    }, [products, search, selectedCategory]);
+                if (!matchesSearch) {
+                    return false;
+                }
+
+                // ALL categories
+                if (selectedCategory === "all") {
+                    return true;
+                }
+
+                // Products normally use category_id.
+                // Keep the other checks as fallbacks because some API
+                // responses may also provide category_name/category.
+                const productCategoryId =
+                    product.category_id ??
+                    product.categoryId ??
+                    product.category?.id ??
+                    null;
+
+                const productCategoryName = String(
+                    product.category_name ??
+                        product.categoryName ??
+                        (typeof product.category === "string"
+                            ? product.category
+                            : product.category?.name) ??
+                        ""
+                )
+                    .trim()
+                    .toLowerCase();
+
+                const matchesCategoryId =
+                    productCategoryId !== null &&
+                    productCategoryId !== undefined &&
+                    String(productCategoryId) ===
+                        String(selectedCategory);
+
+                const matchesCategoryName =
+                    selectedCategoryName !== "" &&
+                    productCategoryName ===
+                        selectedCategoryName;
+
+                return (
+                    matchesCategoryId ||
+                    matchesCategoryName
+                );
+            })
+            .sort((a, b) =>
+                String(a.name || "").localeCompare(
+                    String(b.name || "")
+                )
+            );
+    }, [
+        products,
+        categories,
+        search,
+        selectedCategory,
+    ]);
 
     // =========================================================
     // CART TOTALS
@@ -773,14 +842,22 @@ function POS() {
                                         All
                                     </button>
 
-                                    {categories.map(
-                                        (category) => (
-                                            <button
-                                                type="button"
-                                                key={
-                                                    category.id ??
-                                                    category.name
-                                                }
+                                    {categories
+                                        .filter(
+                                            (category) =>
+                                                category &&
+                                                category.id !==
+                                                    undefined &&
+                                                category.id !==
+                                                    null
+                                        )
+                                        .map(
+                                            (category) => (
+                                                <button
+                                                    type="button"
+                                                    key={
+                                                        category.id
+                                                    }
                                                 className={
                                                     String(
                                                         selectedCategory

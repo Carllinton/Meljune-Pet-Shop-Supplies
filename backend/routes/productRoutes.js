@@ -14,6 +14,12 @@ const {
 const authenticateToken = require("../middleware/authMiddleware");
 const authorizeRoles = require("../middleware/roleMiddleware");
 
+const createImageUploader =
+    require("../middleware/uploadMiddleware");
+
+const uploadProductImage =
+    createImageUploader("products", "product");
+
 
 // =============================================
 // VIEW PRODUCTS
@@ -27,12 +33,14 @@ router.get(
     getProducts
 );
 
+
 router.get(
     "/search",
     authenticateToken,
     authorizeRoles("admin", "cashier"),
     searchProducts
 );
+
 
 router.get(
     "/:id",
@@ -51,15 +59,19 @@ router.post(
     "/",
     authenticateToken,
     authorizeRoles("admin"),
+    uploadProductImage.single("image"),
     createProduct
 );
+
 
 router.put(
     "/:id",
     authenticateToken,
     authorizeRoles("admin"),
+    uploadProductImage.single("image"),
     updateProduct
 );
+
 
 router.delete(
     "/:id",
