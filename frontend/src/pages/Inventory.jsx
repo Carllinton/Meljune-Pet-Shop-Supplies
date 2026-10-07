@@ -116,6 +116,22 @@ function Inventory() {
         [categories]
     );
 
+
+    // --------------------------------------------------
+    // CASHIER NAME HELPER
+    // --------------------------------------------------
+
+    const getCashierName = (transaction) => {
+        return (
+            transaction.admin_name ||
+            transaction.cashier_name ||
+            transaction.full_name ||
+            (transaction.admin_id
+                ? `Admin #${transaction.admin_id}`
+                : "—")
+        );
+    };
+
     // --------------------------------------------------
     // CURRENT INVENTORY SUMMARY
     // --------------------------------------------------
@@ -1023,29 +1039,6 @@ function Inventory() {
                                 )
                             }
                         />
-
-                        <label
-                            style={{
-                                display: "flex",
-                                alignItems:
-                                    "center",
-                                gap: "8px",
-                                whiteSpace: "nowrap"
-                            }}
-                        >
-                            <input
-                                type="checkbox"
-                                checked={repackOnly}
-                                onChange={(event) =>
-                                    setRepackOnly(
-                                        event.target
-                                            .checked
-                                    )
-                                }
-                            />
-
-                            Repack only
-                        </label>
                     </div>
                 </div>
             </div>
@@ -1098,7 +1091,7 @@ function Inventory() {
                                             textAlign:
                                                 "center"}}>Qty After</th>
                                 <th>Reference</th>
-                                <th>By</th>
+                                <th>User</th>
                             </tr>
                         </thead>
 
@@ -1215,7 +1208,7 @@ function Inventory() {
                                             </td>
 
                                             <td>
-                                                {transaction.admin_username || transaction.admin_name || "-"}
+                                                {transaction.admin_role || "—"}
                                             </td>
                                         </tr>
                                     )

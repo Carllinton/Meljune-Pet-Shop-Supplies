@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import Cart from "../assets/icons/cart.png";
 import api from "../services/api";
 
 const ADMIN_ID = 1;
@@ -788,9 +789,6 @@ function POS() {
                                             flex: 1,
                                         }}
                                     >
-                                        <span>
-                                            🔍
-                                        </span>
 
                                         <input
                                             type="text"
@@ -1089,7 +1087,7 @@ function POS() {
                                                     "10px",
                                             }}
                                         >
-                                            🛒
+                                        <img src={Cart} alt="Empty Cart" style={{ width: "40px", height: "40px" }} />
                                         </div>
 
                                         <div>

@@ -4,36 +4,44 @@ const getStockTransactions = async (req, res) => {
     try {
         const [transactions] = await db.query(`
             SELECT
-                st.id,
-                st.product_id,
-                p.product_code,
+                st.*,
+
                 p.name AS product_name,
+                p.product_code AS product_code,
+
                 c.name AS category_name,
-                st.transaction_type,
-                st.quantity,
-                st.quantity_before,
-                st.quantity_after,
-                st.reason,
-                st.reference,
-                st.admin_id,
-                st.created_at
+
+                CASE
+                    WHEN st.admin_id = 1 THEN 'Cashier'
+                    WHEN st.admin_id = 2 THEN 'Manager'
+                    ELSE 'Unknown'
+                END AS admin_role
+
             FROM stock_transactions st
-                INNER JOIN products p ON st.product_id = p.id
-                LEFT JOIN categories c ON p.category_id = c.id
-            ORDER BY st.id DESC
+
+            LEFT JOIN products p
+                ON st.product_id = p.id
+
+            LEFT JOIN categories c
+                ON p.category_id = c.id
+
+            ORDER BY st.created_at DESC
         `);
 
-        res.json({
+        res.status(200).json({
             success: true,
             data: transactions
         });
 
     } catch (error) {
-        console.error("Error fetching stock transactions:", error);
+        console.error(
+            "Get stock transactions error:",
+            error
+        );
 
         res.status(500).json({
             success: false,
-            message: "Failed to fetch stock transactions"
+            message: "Failed to fetch stock transactions."
         });
     }
 };
