@@ -754,7 +754,7 @@ function Inventory() {
                                 <th>Category</th>
                                 <th>Stock</th>
                                 <th>Unit</th>
-                                <th>Low Stock Threshold</th>
+                                <th style={{textAlign:"center"}}>Low Stock Threshold</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
@@ -835,7 +835,10 @@ function Inventory() {
                                                         "pcs"}
                                                 </td>
 
-                                                <td>
+                                                <td style={{
+                                            textAlign:
+                                                "center"}}
+                                                >
                                                     {Number(
                                                         product.low_stock_threshold
                                                     ) ||
@@ -1087,10 +1090,13 @@ function Inventory() {
                                 <th>Product</th>
                                 <th>Category</th>
                                 <th>Type</th>
-                                <th>Qty Before</th>
+                                <th style={{
+                                            textAlign:
+                                                "center"}}>Qty Before</th>
                                 <th>Change</th>
-                                <th>Qty After</th>
-                                <th>Reason</th>
+                                <th style={{
+                                            textAlign:
+                                                "center"}}>Qty After</th>
                                 <th>Reference</th>
                                 <th>By</th>
                             </tr>
@@ -1175,7 +1181,9 @@ function Inventory() {
                                                 </span>
                                             </td>
 
-                                            <td>
+                                            <td style={{
+                                            textAlign:
+                                                "center"}}>
                                                 {Number(
                                                     transaction.quantity_before
                                                 ).toLocaleString()}
@@ -1193,15 +1201,12 @@ function Inventory() {
                                                 </span>
                                             </td>
 
-                                            <td>
+                                            <td style={{
+                                            textAlign:
+                                                "center"}}>
                                                 {Number(
                                                     transaction.quantity_after
                                                 ).toLocaleString()}
-                                            </td>
-
-                                            <td>
-                                                {transaction.reason ||
-                                                    "—"}
                                             </td>
 
                                             <td>
@@ -1210,10 +1215,7 @@ function Inventory() {
                                             </td>
 
                                             <td>
-                                                {transaction.admin_name ||
-                                                    transaction.admin_username ||
-                                                    transaction.admin_id ||
-                                                    "—"}
+                                                {transaction.admin_username || transaction.admin_name || "-"}
                                             </td>
                                         </tr>
                                     )

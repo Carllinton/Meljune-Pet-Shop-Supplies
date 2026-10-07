@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import Modal from "../components/Modal";
 import ConfirmDialog from "../components/ConfirmDialog";
+import PencilIcon from "../assets/icons/pencil.png";
+import TrashIcon from "../assets/icons/trash.png";
 import { getUser } from "../services/auth";
 
 const API_BASE_URL = "http://localhost:5000";
@@ -599,12 +601,7 @@ function Suppliers() {
                                     Address
                                 </th>
 
-                                <th
-                                    style={{
-                                        width:
-                                            "110px",
-                                    }}
-                                >
+                                <th>
                                     Actions
                                 </th>
 
@@ -834,6 +831,7 @@ function Suppliers() {
                                                                 )
                                                             }
                                                         >
+                                                        <img src={PencilIcon} alt="Edit" />
                                                         </button>
 
                                                         <button
@@ -846,6 +844,7 @@ function Suppliers() {
                                                                 )
                                                             }
                                                         >
+                                                        <img src={TrashIcon} alt="Delete" />
                                                         </button>
 
                                                     </div>

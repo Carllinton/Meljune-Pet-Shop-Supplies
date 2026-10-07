@@ -3,6 +3,8 @@ import api from "../services/api";
 import Modal from "../components/Modal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import useDebounce from "../hooks/useDebounce";
+import PencilIcon from "../assets/icons/pencil.png";
+import TrashIcon from "../assets/icons/trash.png";
 import { getUser } from "../services/auth";
 import {
   formatPeso,
@@ -1168,6 +1170,7 @@ function Products() {
                                   )
                                 }
                               >
+                              <img src={PencilIcon} alt="Edit" />
                               </button>
 
 
@@ -1181,6 +1184,7 @@ function Products() {
                                   )
                                 }
                               >
+                              <img src={TrashIcon} alt="Delete" />
                               </button>
 
                             </div>

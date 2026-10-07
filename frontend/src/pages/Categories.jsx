@@ -541,7 +541,7 @@ function Categories() {
 
       {/* SEARCH */}
 
-      <div className="card">
+      <div className="card" style={{ marginBottom: "16px" }}>
 
         <div className="card-body">
 
@@ -647,104 +647,14 @@ function Categories() {
 
                   <div className="card-body">
 
-                    {/* IMAGE + ACTIONS */}
-
-                    <div
-                      className="flex justify-between items-center"
-                      style={{
-                        marginBottom:
-                          "12px",
-                      }}
-                    >
-
-                      {category.image ? (
-
-                        <img
-                          src={getImageUrl(
-                            category.image
-                          )}
-                          alt={
-                            category.name
-                          }
-                          style={{
-                            width: "52px",
-                            height: "52px",
-                            borderRadius:
-                              "12px",
-                            objectFit:
-                              "cover",
-                            border:
-                              `2px solid ${categoryColor}`,
-                          }}
-                        />
-
-                      ) : (
-
-                        <div
-                          
-                          style={{
-                            width: "44px",
-                            height: "44px",
-                            borderRadius:
-                              "12px",
-                            background:
-                              `${categoryColor}22`,
-                            color:
-                              categoryColor,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontWeight: 700,
-                            fontSize: "18px",
-                          }}
-                        >
-                          {(category.name || "C").charAt(0).toUpperCase()}
-                        </div>
-
-                      )}
-
-                      {isAdmin && (
-
-                        <div className="action-group">
-
-                          <button
-                            type="button"
-                            className="action-btn action-btn-edit"
-                            title="Edit Category"
-                            onClick={() =>
-                              openEditModal(
-                                category
-                              )
-                            }
-                          >
-                          </button>
-
-                          <button
-                            type="button"
-                            className="action-btn action-btn-delete"
-                            title="Delete Category"
-                            onClick={() =>
-                              askDelete(
-                                category
-                              )
-                            }
-                          >
-                          </button>
-
-                        </div>
-
-                      )}
-
-                    </div>
-
-
                     {/* NAME */}
 
                     <h3
                       style={{
                         fontWeight: 700,
+                        fontSize: "1.7rem",
                         marginBottom:
-                          "4px",
+                          "8px",
                       }}
                     >
                       {category.name}
@@ -756,8 +666,8 @@ function Categories() {
                     <p
                       className="text-sm text-muted"
                       style={{
-                        marginBottom:
-                          "12px",
+                        marginBottom: "12px",
+                        fontSize: "1rem",
                       }}
                     >
                       {category.description ||
@@ -926,83 +836,6 @@ function Categories() {
                     />
 
                   </div>
-
-
-                  {/* IMAGE */}
-
-                  <div className="form-group">
-
-                    <label>
-                      Category Image
-                    </label>
-
-                    <input
-                      id="category-image-input"
-                      type="file"
-                      accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-                      className="form-control"
-                      onChange={
-                        handleImageChange
-                      }
-                    />
-
-                    <span className="form-hint">
-                      JPG, JPEG, PNG, or
-                      WEBP. Maximum 5 MB.
-                    </span>
-
-
-                    {imagePreview && (
-
-                      <div
-                        style={{
-                          marginTop: "12px",
-                          display: "flex",
-                          flexDirection:
-                            "column",
-                          gap: "10px",
-                        }}
-                      >
-
-                        <img
-                          src={imagePreview}
-                          alt="Category preview"
-                          style={{
-                            width: "180px",
-                            height: "180px",
-                            objectFit:
-                              "cover",
-                            borderRadius:
-                              "12px",
-                            border:
-                              `2px solid ${
-                                form.color ||
-                                "#4CAF50"
-                              }`,
-                          }}
-                        />
-
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm"
-                          onClick={
-                            removeSelectedImage
-                          }
-                          disabled={saving}
-                          style={{
-                            width:
-                              "fit-content",
-                          }}
-                        >
-                          Remove Selected Image
-                        </button>
-
-                      </div>
-
-                    )}
-
-                  </div>
-
 
                   {/* DESCRIPTION */}
 

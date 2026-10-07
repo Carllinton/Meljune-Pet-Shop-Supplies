@@ -609,7 +609,7 @@ function Credit() {
                                                     </td>
 
                                                     <td>
-                                                        <span
+                                                        <span  style={{padding: "3px 6px", borderRadius: "10px", fontSize: "0.9em"}}
                                                             className={
                                                                 isActive
                                                                     ? "chip-success"

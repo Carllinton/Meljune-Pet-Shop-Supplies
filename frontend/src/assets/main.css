@@ -392,9 +392,12 @@ tbody tr:hover td { background: var(--surface-2); }
     transition: all var(--transition);
 }
 .action-btn i { width: 14px; height: 14px; }
+.action-btn img { width: 16px; height: 16px; object-fit: contain; }
 .action-btn-edit { color: var(--info); }
+.action-btn-edit img { filter: invert(48%) sepia(83%) saturate(2252%) hue-rotate(199deg) brightness(99%) contrast(96%); }
 .action-btn-edit:hover { background: var(--info-light); }
 .action-btn-delete { color: var(--danger); }
+.action-btn-delete img { filter: invert(34%) sepia(92%) saturate(1792%) hue-rotate(329deg) brightness(97%) contrast(94%); }
 .action-btn-delete:hover { background: var(--danger-light); }
 .action-btn-view { color: var(--text-secondary); }
 .action-btn-view:hover { background: var(--surface-2); }
@@ -404,7 +407,7 @@ tbody tr:hover td { background: var(--surface-2); }
    ============================================= */
 .form-grid { display: grid; gap: 16px; }
 .form-grid-2 { grid-template-columns: 1fr 1fr; }
-.form-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+.form-grid-3 { grid-template-columns: 1fr 1fr 1fr; padding-top: 10px;}
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-group label {
     font-size: .82rem; font-weight: 600; color: var(--text-secondary);

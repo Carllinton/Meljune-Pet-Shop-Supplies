@@ -865,7 +865,7 @@ function Dashboard() {
                                                     </span>
                                                 </td>
 
-                                                <td
+                                                <td 
                                                     className={`font-mono ${
                                                         Number(
                                                             product.quantity
@@ -874,6 +874,7 @@ function Dashboard() {
                                                             ? "text-danger"
                                                             : "text-warning"
                                                     }`}
+                                                    style={{ textAlign: "center" }}
                                                 >
                                                     {
                                                         product.quantity
@@ -1114,4 +1115,3 @@ function Dashboard() {
 }
 
 export default Dashboard;
-
