@@ -1934,14 +1934,6 @@ function Reports() {
                                         </th>
 
                                         <th>
-                                            Subtotal
-                                        </th>
-
-                                        <th>
-                                            Discount
-                                        </th>
-
-                                        <th>
                                             Total
                                         </th>
 
@@ -1993,18 +1985,6 @@ function Reports() {
                                                     </span>
                                                 </td>
 
-                                                <td className="font-mono">
-                                                    {formatPeso(
-                                                        sale.subtotal
-                                                    )}
-                                                </td>
-
-                                                <td className="font-mono">
-                                                    {formatPeso(
-                                                        sale.discount
-                                                    )}
-                                                </td>
-
                                                 <td className="font-mono font-bold">
                                                     {formatPeso(
                                                         sale.total
@@ -2044,12 +2024,6 @@ function Reports() {
                                                         ),
                                                     0
                                                 )
-                                            )}
-                                        </td>
-
-                                        <td className="font-mono">
-                                            {formatPeso(
-                                                salesSummary.totalDiscount
                                             )}
                                         </td>
 

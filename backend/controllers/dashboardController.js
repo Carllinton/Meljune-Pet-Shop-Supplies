@@ -91,7 +91,10 @@ const getDashboard = async (req, res) => {
                 ON p.category_id = c.id
                 AND p.status = 'active'
 
-            GROUP BY c.id
+            GROUP BY
+                c.id,
+                c.name,
+                c.color
 
             ORDER BY product_count DESC
 
@@ -283,6 +286,7 @@ const getDashboard = async (req, res) => {
 
         const [monthlySales] = await db.query(`
             SELECT
+
                 DATE_FORMAT(
                     MIN(created_at),
                     '%Y-%m'
@@ -386,13 +390,24 @@ const getDashboard = async (req, res) => {
         // =========================================
         // TOP SELLING PRODUCTS
         // =========================================
+        // sale_items does NOT have a subtotal column.
+        // Revenue is calculated using quantity * unit_price.
 
         const [topProducts] = await db.query(`
             SELECT
                 p.id,
                 p.name,
-                SUM(si.quantity) AS quantity_sold,
-                COALESCE(SUM(si.subtotal), 0) AS revenue
+
+                SUM(
+                    si.quantity
+                ) AS quantity_sold,
+
+                COALESCE(
+                    SUM(
+                        si.quantity * si.unit_price
+                    ),
+                    0
+                ) AS revenue
 
             FROM sale_items si
 
@@ -487,7 +502,9 @@ const getDashboard = async (req, res) => {
                     daily:
                         dailySales,
 
-                    top_products: topProducts
+                    // Top selling products
+                    top_products:
+                        topProducts
                 },
 
                 // SUPPLIERS

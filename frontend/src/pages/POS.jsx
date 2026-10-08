@@ -1702,25 +1702,6 @@ function POS() {
                                     }}
                                 >
                                     <span>
-                                        Subtotal
-                                    </span>
-
-                                    <strong>
-                                        {formatPeso(
-                                            receipt.subtotal
-                                        )}
-                                    </strong>
-                                </div>
-
-                                <div
-                                    style={{
-                                        display:
-                                            "flex",
-                                        justifyContent:
-                                            "space-between",
-                                    }}
-                                >
-                                    <span>
                                         Discount
                                     </span>
 

@@ -46,10 +46,15 @@ const getSales = async (req, res) => {
 // GET SALE BY ID
 // ==========================================
 const getSaleById = async (req, res) => {
+    const connection = await db.getConnection();
+
     try {
         const { id } = req.params;
 
-        const [sales] = await db.query(`
+        // ------------------------------------------
+        // GET SALE
+        // ------------------------------------------
+        const [sales] = await connection.query(`
             SELECT
                 s.id,
                 s.receipt_no,
@@ -77,9 +82,33 @@ const getSaleById = async (req, res) => {
             });
         }
 
+        // ------------------------------------------
+        // GET SALE ITEMS
+        // subtotal is calculated dynamically
+        // ------------------------------------------
+        const [items] = await connection.query(`
+            SELECT
+                si.id,
+                si.sale_id,
+                si.product_id,
+                p.product_code,
+                p.name AS product_name,
+                si.quantity,
+                si.unit_price,
+                (si.quantity * si.unit_price) AS subtotal
+            FROM sale_items si
+            INNER JOIN products p
+                ON si.product_id = p.id
+            WHERE si.sale_id = ?
+            ORDER BY si.id ASC
+        `, [id]);
+
         res.json({
             success: true,
-            data: sales[0]
+            data: {
+                ...sales[0],
+                items
+            }
         });
 
     } catch (error) {
@@ -89,54 +118,44 @@ const getSaleById = async (req, res) => {
             success: false,
             message: "Failed to fetch sale"
         });
+
+    } finally {
+        connection.release();
     }
 };
 
 
 // ==========================================
-// CREATE SALE / POS TRANSACTION
+// CREATE SALE
 // ==========================================
 const createSale = async (req, res) => {
-
     const connection = await db.getConnection();
 
     try {
-
         const {
             customer_id,
             payment_method,
-            amount_tendered,
-            discount,
-            note,
+            amount_tendered = 0,
+            discount = 0,
+            note = null,
             items
         } = req.body;
 
-
-        // ==========================================
-        // GET LOGGED-IN USER
-        // ==========================================
-
+        // ------------------------------------------
+        // GET LOGGED-IN ADMIN
+        // ------------------------------------------
         const admin_id = req.user?.id;
 
         if (!admin_id) {
             return res.status(401).json({
                 success: false,
-                message: "Authenticated user ID is missing"
+                message: "Unauthorized. Admin account not found."
             });
         }
 
-
-        // ==========================================
-        // BASIC VALIDATION
-        // ==========================================
-
-        if (!payment_method) {
-            return res.status(400).json({
-                success: false,
-                message: "Payment method is required"
-            });
-        }
-
+        // ------------------------------------------
+        // VALIDATE PAYMENT METHOD
+        // ------------------------------------------
         const validPaymentMethods = [
             "cash",
             "gcash",
@@ -144,32 +163,34 @@ const createSale = async (req, res) => {
             "credit"
         ];
 
-        if (!validPaymentMethods.includes(payment_method)) {
+        if (
+            !payment_method ||
+            !validPaymentMethods.includes(payment_method)
+        ) {
             return res.status(400).json({
                 success: false,
-                message: "Invalid payment method"
+                message: "Invalid payment method."
             });
         }
 
+        // ------------------------------------------
+        // VALIDATE ITEMS
+        // ------------------------------------------
         if (!Array.isArray(items) || items.length === 0) {
             return res.status(400).json({
                 success: false,
-                message: "At least one product is required"
+                message: "Sale must contain at least one item."
             });
         }
 
-
-        // ==========================================
+        // ------------------------------------------
         // START TRANSACTION
-        // ==========================================
-
+        // ------------------------------------------
         await connection.beginTransaction();
 
-
-        // ==========================================
-        // CHECK LOGGED-IN ADMIN / STAFF ACCOUNT
-        // ==========================================
-
+        // ------------------------------------------
+        // CHECK ADMIN
+        // ------------------------------------------
         const [admins] = await connection.query(`
             SELECT id
             FROM admins
@@ -177,16 +198,13 @@ const createSale = async (req, res) => {
         `, [admin_id]);
 
         if (admins.length === 0) {
-            throw new Error("Logged-in user account not found");
+            throw new Error("Admin account not found.");
         }
 
-
-        // ==========================================
+        // ------------------------------------------
         // CHECK CUSTOMER
-        // ==========================================
-
+        // ------------------------------------------
         if (customer_id) {
-
             const [customers] = await connection.query(`
                 SELECT
                     id,
@@ -195,95 +213,87 @@ const createSale = async (req, res) => {
                     status
                 FROM customers
                 WHERE id = ?
-                FOR UPDATE
             `, [customer_id]);
 
             if (customers.length === 0) {
-                throw new Error("Customer not found");
+                throw new Error("Customer not found.");
             }
 
             if (customers[0].status !== "active") {
-                throw new Error("Customer is inactive");
+                throw new Error("Customer account is inactive.");
             }
         }
 
-
-        // ==========================================
+        // ------------------------------------------
         // PROCESS PRODUCTS
-        // ==========================================
-
+        // ------------------------------------------
         let subtotal = 0;
 
         const processedItems = [];
 
         for (const item of items) {
-
-            const product_id = Number(item.product_id);
+            const productId = Number(item.product_id);
             const quantity = Number(item.quantity);
 
-
-            // Validate item
             if (
-                !Number.isInteger(product_id) ||
-                product_id <= 0 ||
+                !productId ||
                 !Number.isInteger(quantity) ||
                 quantity <= 0
             ) {
                 throw new Error(
-                    "Each item must have a valid product ID and quantity"
+                    "Invalid product or quantity."
                 );
             }
 
-
-            // Get product and lock row
+            // ------------------------------------------
+            // LOCK PRODUCT ROW
+            // ------------------------------------------
             const [products] = await connection.query(`
                 SELECT
                     id,
                     product_code,
                     name,
-                    quantity,
                     price,
-                    status
+                    quantity AS stock_quantity
                 FROM products
                 WHERE id = ?
                 FOR UPDATE
-            `, [product_id]);
-
+            `, [productId]);
 
             if (products.length === 0) {
                 throw new Error(
-                    `Product ${product_id} not found`
+                    `Product with ID ${productId} not found.`
                 );
             }
-
 
             const product = products[0];
 
+            const currentStock =
+                Number(product.stock_quantity);
 
-            // Check product status
-            if (product.status !== "active") {
+            // ------------------------------------------
+            // CHECK STOCK
+            // ------------------------------------------
+            if (currentStock < quantity) {
                 throw new Error(
-                    `Product "${product.name}" is not active`
+                    `Insufficient stock for ${product.name}. ` +
+                    `Available stock: ${currentStock}.`
                 );
             }
 
-
-            // Check stock
-            if (product.quantity < quantity) {
-                throw new Error(
-                    `Insufficient stock for "${product.name}". Available: ${product.quantity}`
-                );
-            }
-
-
-            const unitPrice = Number(product.price);
+            // ------------------------------------------
+            // CALCULATE ITEM SUBTOTAL
+            // ------------------------------------------
+            const unitPrice =
+                Number(product.price);
 
             const itemSubtotal =
                 unitPrice * quantity;
 
-
             subtotal += itemSubtotal;
 
+            const quantityAfter =
+                currentStock - quantity;
 
             processedItems.push({
                 product_id: product.id,
@@ -292,100 +302,78 @@ const createSale = async (req, res) => {
                 quantity: quantity,
                 unit_price: unitPrice,
                 subtotal: itemSubtotal,
-                quantity_before: product.quantity,
-                quantity_after:
-                    product.quantity - quantity
+                quantity_before: currentStock,
+                quantity_after: quantityAfter
             });
         }
 
-
-        // ==========================================
-        // DISCOUNT
-        // ==========================================
-
+        // ------------------------------------------
+        // VALIDATE DISCOUNT
+        // ------------------------------------------
         const saleDiscount =
-            Number(discount || 0);
-
+            Number(discount) || 0;
 
         if (saleDiscount < 0) {
             throw new Error(
-                "Discount cannot be negative"
+                "Discount cannot be negative."
             );
         }
-
 
         if (saleDiscount > subtotal) {
             throw new Error(
-                "Discount cannot exceed subtotal"
+                "Discount cannot be greater than the subtotal."
             );
         }
 
+        // ------------------------------------------
+        // CALCULATE TOTAL
+        // ------------------------------------------
+        const total = Math.max(
+            0,
+            subtotal - saleDiscount
+        );
 
-        const total =
-            subtotal - saleDiscount;
-
-
-        // ==========================================
-        // PAYMENT
-        // ==========================================
-
-        let amountTendered =
-            Number(amount_tendered || 0);
+        // ------------------------------------------
+        // PAYMENT VARIABLES
+        // ------------------------------------------
+        let finalAmountTendered =
+            Number(amount_tendered) || 0;
 
         let changeGiven = 0;
 
-
         // ------------------------------------------
-        // CASH
+        // CASH / GCASH / MAYA
         // ------------------------------------------
-
-        if (payment_method === "cash") {
-
-            if (amountTendered < total) {
-                throw new Error(
-                    `Insufficient payment. Total is ${total.toFixed(2)}`
-                );
-            }
-
-            changeGiven =
-                amountTendered - total;
-        }
-
-
-        // ------------------------------------------
-        // GCASH / MAYA
-        // ------------------------------------------
-
-        else if (
+        if (
+            payment_method === "cash" ||
             payment_method === "gcash" ||
             payment_method === "maya"
         ) {
-
-            if (amountTendered < total) {
+            if (finalAmountTendered < total) {
                 throw new Error(
-                    `Payment must cover the total of ${total.toFixed(2)}`
+                    `Insufficient payment. ` +
+                    `Total amount is ₱${total.toFixed(2)}.`
                 );
             }
 
             changeGiven =
-                amountTendered - total;
+                finalAmountTendered - total;
         }
 
-
         // ------------------------------------------
-        // CREDIT
+        // CREDIT PAYMENT
         // ------------------------------------------
-
-        else if (payment_method === "credit") {
+        if (payment_method === "credit") {
 
             if (!customer_id) {
                 throw new Error(
-                    "Customer is required for credit sales"
+                    "A customer is required for credit sales."
                 );
             }
 
-
-            // Get customer again with lock
+            // ------------------------------------------
+            // GET CUSTOMER CREDIT LIMIT
+            // ------------------------------------------
             const [customers] = await connection.query(`
                 SELECT
                     id,
@@ -396,138 +384,136 @@ const createSale = async (req, res) => {
                 FOR UPDATE
             `, [customer_id]);
 
-
             if (customers.length === 0) {
                 throw new Error(
-                    "Customer not found"
+                    "Customer not found."
                 );
             }
 
-
             const customer = customers[0];
 
+            const creditLimit =
+                Number(customer.credit_limit) || 0;
 
-            // Calculate current credit balance
-            const [creditResult] =
-                await connection.query(`
-                    SELECT
-                        COALESCE(
-                            SUM(
-                                CASE
-                                    WHEN transaction_type = 'credit'
+            // ------------------------------------------
+            // GET CURRENT CREDIT BALANCE
+            // ------------------------------------------
+            const [balanceRows] = await connection.query(`
+                SELECT
+                    COALESCE(
+                        SUM(
+                            CASE
+                                WHEN transaction_type = 'credit'
                                     THEN amount
 
-                                    WHEN transaction_type = 'payment'
+                                WHEN transaction_type = 'payment'
                                     THEN -amount
 
-                                    ELSE 0
-                                END
-                            ),
-                            0
-                        ) AS balance
-                    FROM credit_transactions
-                    WHERE customer_id = ?
-                `, [customer_id]);
-
+                                ELSE 0
+                            END
+                        ),
+                        0
+                    ) AS balance
+                FROM credit_transactions
+                WHERE customer_id = ?
+            `, [customer_id]);
 
             const currentBalance =
-                Number(creditResult[0].balance);
-
+                Number(balanceRows[0].balance) || 0;
 
             const newBalance =
                 currentBalance + total;
 
-
-            // Check credit limit
-            if (
-                newBalance >
-                Number(customer.credit_limit)
-            ) {
+            // ------------------------------------------
+            // CHECK CREDIT LIMIT
+            // ------------------------------------------
+            if (newBalance > creditLimit) {
                 throw new Error(
-                    `Credit limit exceeded. Current balance: ${currentBalance.toFixed(2)}, Credit limit: ${Number(customer.credit_limit).toFixed(2)}`
+                    `Credit limit exceeded. ` +
+                    `Current balance: ₱${currentBalance.toFixed(2)}, ` +
+                    `Credit limit: ₱${creditLimit.toFixed(2)}, ` +
+                    `New balance: ₱${newBalance.toFixed(2)}.`
                 );
             }
 
-
-            amountTendered = 0;
+            finalAmountTendered = 0;
             changeGiven = 0;
         }
 
-
-        // ==========================================
+        // ------------------------------------------
         // GENERATE RECEIPT NUMBER
-        // ==========================================
-
+        // ------------------------------------------
         const receiptNo =
             `REC-${Date.now()}`;
 
-
-        // ==========================================
+        // ------------------------------------------
         // INSERT SALE
-        // ==========================================
-
-        const [saleResult] =
-            await connection.query(`
-                INSERT INTO sales (
-                    receipt_no,
-                    subtotal,
-                    discount,
-                    total,
-                    payment_method,
-                    amount_tendered,
-                    change_given,
-                    note,
-                    customer_id,
-                    admin_id
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `, [
-                receiptNo,
+        // ------------------------------------------
+        const [saleResult] = await connection.query(`
+            INSERT INTO sales (
+                receipt_no,
                 subtotal,
-                saleDiscount,
+                discount,
                 total,
                 payment_method,
-                amountTendered,
-                changeGiven,
-                note || null,
-                customer_id || null,
+                amount_tendered,
+                change_given,
+                note,
+                customer_id,
                 admin_id
-            ]);
-
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+            receiptNo,
+            Number(subtotal.toFixed(2)),
+            Number(saleDiscount.toFixed(2)),
+            Number(total.toFixed(2)),
+            payment_method,
+            Number(finalAmountTendered.toFixed(2)),
+            Number(changeGiven.toFixed(2)),
+            note || null,
+            customer_id || null,
+            admin_id
+        ]);
 
         const saleId =
             saleResult.insertId;
 
-
         // ==========================================
         // INSERT SALE ITEMS
-        // UPDATE STOCK
-        // CREATE STOCK TRANSACTION
+        // ==========================================
+        // IMPORTANT:
+        // sale_items DOES NOT HAVE subtotal.
+        // We only store quantity and unit_price.
         // ==========================================
 
         for (const item of processedItems) {
 
-
-            // Insert sale item
             await connection.query(`
                 INSERT INTO sale_items (
                     sale_id,
                     product_id,
                     quantity,
-                    unit_price,
-                    subtotal
+                    unit_price
                 )
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?)
             `, [
                 saleId,
                 item.product_id,
                 item.quantity,
-                item.unit_price,
-                item.subtotal
+                item.unit_price
             ]);
+        }
 
+        // ==========================================
+        // UPDATE STOCK + CREATE STOCK TRANSACTION
+        // ==========================================
 
-            // Update product quantity
+        for (const item of processedItems) {
+
+            // ------------------------------------------
+            // UPDATE PRODUCT QUANTITY
+            // ------------------------------------------
             await connection.query(`
                 UPDATE products
                 SET quantity = ?
@@ -537,8 +523,9 @@ const createSale = async (req, res) => {
                 item.product_id
             ]);
 
-
-            // Record stock transaction
+            // ------------------------------------------
+            // INSERT STOCK TRANSACTION
+            // ------------------------------------------
             await connection.query(`
                 INSERT INTO stock_transactions (
                     product_id,
@@ -550,21 +537,21 @@ const createSale = async (req, res) => {
                     reference,
                     admin_id
                 )
-                VALUES (?, 'stock_out', ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `, [
                 item.product_id,
+                "stock_out",
                 item.quantity,
                 item.quantity_before,
                 item.quantity_after,
-                "Sale",
+                `Sale - ${receiptNo}`,
                 receiptNo,
                 admin_id
             ]);
         }
 
-
         // ==========================================
-        // CREATE CREDIT TRANSACTION
+        // INSERT CREDIT TRANSACTION
         // ==========================================
 
         if (payment_method === "credit") {
@@ -572,24 +559,22 @@ const createSale = async (req, res) => {
             await connection.query(`
                 INSERT INTO credit_transactions (
                     customer_id,
-                    sale_id,
                     transaction_type,
                     amount,
                     reference,
                     notes,
                     admin_id
                 )
-                VALUES (?, ?, 'credit', ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?)
             `, [
                 customer_id,
-                saleId,
-                total,
+                "credit",
+                Number(total.toFixed(2)),
                 receiptNo,
-                "Credit sale",
+                note || `Credit sale ${receiptNo}`,
                 admin_id
             ]);
         }
-
 
         // ==========================================
         // COMMIT
@@ -597,17 +582,17 @@ const createSale = async (req, res) => {
 
         await connection.commit();
 
-
         // ==========================================
         // RESPONSE
         // ==========================================
 
         res.status(201).json({
             success: true,
-            message: "Sale completed successfully",
+            message: "Sale completed successfully.",
 
             data: {
                 sale_id: saleId,
+
                 receipt_no: receiptNo,
 
                 subtotal:
@@ -622,22 +607,29 @@ const createSale = async (req, res) => {
                 payment_method,
 
                 amount_tendered:
-                    Number(amountTendered.toFixed(2)),
+                    Number(
+                        finalAmountTendered.toFixed(2)
+                    ),
 
                 change_given:
-                    Number(changeGiven.toFixed(2)),
+                    Number(
+                        changeGiven.toFixed(2)
+                    ),
 
                 customer_id:
                     customer_id || null,
+
+                admin_id,
 
                 items: processedItems
             }
         });
 
-
     } catch (error) {
 
-        // Rollback everything
+        // ------------------------------------------
+        // ROLLBACK
+        // ------------------------------------------
         await connection.rollback();
 
         console.error(
@@ -649,12 +641,11 @@ const createSale = async (req, res) => {
             success: false,
             message:
                 error.message ||
-                "Failed to create sale"
+                "Failed to create sale."
         });
 
     } finally {
 
-        // Return connection to pool
         connection.release();
     }
 };

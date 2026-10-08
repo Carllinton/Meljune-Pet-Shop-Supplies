@@ -1,5 +1,8 @@
 const db = require("../config/database");
 
+// ==========================================
+// GET ALL SALE ITEMS
+// ==========================================
 const getSaleItems = async (req, res) => {
     try {
         const [saleItems] = await db.query(`
@@ -11,7 +14,7 @@ const getSaleItems = async (req, res) => {
                 p.name AS product_name,
                 si.quantity,
                 si.unit_price,
-                si.subtotal
+                (si.quantity * si.unit_price) AS subtotal
             FROM sale_items si
             INNER JOIN products p
                 ON si.product_id = p.id
@@ -33,6 +36,10 @@ const getSaleItems = async (req, res) => {
     }
 };
 
+
+// ==========================================
+// GET SALE ITEMS BY SALE ID
+// ==========================================
 const getSaleItemsBySaleId = async (req, res) => {
     try {
         const { saleId } = req.params;
@@ -46,7 +53,7 @@ const getSaleItemsBySaleId = async (req, res) => {
                 p.name AS product_name,
                 si.quantity,
                 si.unit_price,
-                si.subtotal
+                (si.quantity * si.unit_price) AS subtotal
             FROM sale_items si
             INNER JOIN products p
                 ON si.product_id = p.id
@@ -68,6 +75,7 @@ const getSaleItemsBySaleId = async (req, res) => {
         });
     }
 };
+
 
 module.exports = {
     getSaleItems,
