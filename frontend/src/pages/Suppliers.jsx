@@ -6,16 +6,12 @@ import PencilIcon from "../assets/icons/pencil.png";
 import TrashIcon from "../assets/icons/trash.png";
 import { getUser } from "../services/auth";
 
-const API_BASE_URL = "http://localhost:5000";
-
 const EMPTY_FORM = {
     name: "",
     contact_person: "",
     phone: "",
     email: "",
     address: "",
-    existingImage: "",
-    imageFile: null,
 };
 
 function Suppliers() {
@@ -30,56 +26,28 @@ function Suppliers() {
 
     const [modalOpen, setModalOpen] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState(null);
+
     const [form, setForm] = useState({
         ...EMPTY_FORM,
     });
 
-    const [imagePreview, setImagePreview] =
-        useState("");
-
     const [saving, setSaving] = useState(false);
     const [formError, setFormError] = useState("");
 
-    const [confirmOpen, setConfirmOpen] =
-        useState(false);
-
-    const [supplierToDelete, setSupplierToDelete] =
-        useState(null);
-
-    const [deleting, setDeleting] =
-        useState(false);
-
-    // ==========================================
-    // IMAGE URL
-    // ==========================================
-    const getImageUrl = (image) => {
-        if (!image) return "";
-
-        if (
-            image.startsWith("http://") ||
-            image.startsWith("https://") ||
-            image.startsWith("blob:")
-        ) {
-            return image;
-        }
-
-        if (image.startsWith("/")) {
-            return `${API_BASE_URL}${image}`;
-        }
-
-        return `${API_BASE_URL}/${image}`;
-    };
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [supplierToDelete, setSupplierToDelete] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     // ==========================================
     // LOAD SUPPLIERS
     // ==========================================
+
     const loadSuppliers = async () => {
         try {
             setLoading(true);
             setError("");
 
-            const response =
-                await api.get("/suppliers");
+            const response = await api.get("/suppliers");
 
             const data =
                 response?.data?.data ??
@@ -91,6 +59,7 @@ function Suppliers() {
                     ? data
                     : []
             );
+
         } catch (err) {
             console.error(
                 "Failed to load suppliers:",
@@ -101,6 +70,7 @@ function Suppliers() {
                 err?.response?.data?.message ||
                 "Failed to load suppliers."
             );
+
         } finally {
             setLoading(false);
         }
@@ -113,39 +83,38 @@ function Suppliers() {
     // ==========================================
     // SEARCH
     // ==========================================
-    const filteredSuppliers =
-        useMemo(() => {
-            const query =
-                search.trim().toLowerCase();
 
-            if (!query) {
-                return suppliers;
-            }
+    const filteredSuppliers = useMemo(() => {
+        const query = search
+            .trim()
+            .toLowerCase();
 
-            return suppliers.filter(
-                (supplier) => {
-                    return [
-                        supplier.name,
-                        supplier.contact_person,
-                        supplier.phone,
-                        supplier.email,
-                        supplier.address,
-                    ]
-                        .filter(Boolean)
-                        .some((value) =>
-                            String(value)
-                                .toLowerCase()
-                                .includes(
-                                    query
-                                )
-                        );
-                }
-            );
-        }, [suppliers, search]);
+        if (!query) {
+            return suppliers;
+        }
+
+        return suppliers.filter((supplier) => {
+            return [
+                supplier.name,
+                supplier.contact_person,
+                supplier.phone,
+                supplier.email,
+                supplier.address,
+            ]
+                .filter(Boolean)
+                .some((value) =>
+                    String(value)
+                        .toLowerCase()
+                        .includes(query)
+                );
+        });
+
+    }, [suppliers, search]);
 
     // ==========================================
     // OPEN ADD MODAL
     // ==========================================
+
     const openAddModal = () => {
         setEditingSupplier(null);
 
@@ -153,7 +122,6 @@ function Suppliers() {
             ...EMPTY_FORM,
         });
 
-        setImagePreview("");
         setFormError("");
         setModalOpen(true);
     };
@@ -161,30 +129,21 @@ function Suppliers() {
     // ==========================================
     // OPEN EDIT MODAL
     // ==========================================
+
     const openEditModal = (supplier) => {
         setEditingSupplier(supplier);
-
-        const existingImage =
-            supplier.image || "";
 
         setForm({
             name: supplier.name || "",
             contact_person:
-                supplier.contact_person ||
-                "",
+                supplier.contact_person || "",
             phone:
                 supplier.phone || "",
             email:
                 supplier.email || "",
             address:
                 supplier.address || "",
-            existingImage,
-            imageFile: null,
         });
-
-        setImagePreview(
-            getImageUrl(existingImage)
-        );
 
         setFormError("");
         setModalOpen(true);
@@ -193,6 +152,7 @@ function Suppliers() {
     // ==========================================
     // CLOSE MODAL
     // ==========================================
+
     const closeModal = () => {
         if (saving) return;
 
@@ -203,13 +163,13 @@ function Suppliers() {
             ...EMPTY_FORM,
         });
 
-        setImagePreview("");
         setFormError("");
     };
 
     // ==========================================
     // FORM CHANGE
     // ==========================================
+
     const handleChange = (event) => {
         const {
             name,
@@ -223,96 +183,13 @@ function Suppliers() {
     };
 
     // ==========================================
-    // IMAGE CHANGE
-    // ==========================================
-    const handleImageChange = (event) => {
-        const file =
-            event.target.files?.[0];
-
-        if (!file) return;
-
-        const allowedTypes = [
-            "image/jpeg",
-            "image/jpg",
-            "image/png",
-            "image/webp",
-        ];
-
-        const maxSize =
-            5 * 1024 * 1024;
-
-        if (
-            !allowedTypes.includes(
-                file.type
-            )
-        ) {
-            setFormError(
-                "Invalid image format. Only JPG, JPEG, PNG, and WEBP are allowed."
-            );
-
-            event.target.value = "";
-            return;
-        }
-
-        if (file.size > maxSize) {
-            setFormError(
-                "Image is too large. Maximum allowed size is 5 MB."
-            );
-
-            event.target.value = "";
-            return;
-        }
-
-        setFormError("");
-
-        setForm((previous) => ({
-            ...previous,
-            imageFile: file,
-        }));
-
-        const previewUrl =
-            URL.createObjectURL(file);
-
-        setImagePreview(previewUrl);
-    };
-
-    // ==========================================
-    // REMOVE SELECTED IMAGE
-    // ==========================================
-    const removeSelectedImage = () => {
-        setForm((previous) => ({
-            ...previous,
-            imageFile: null,
-        }));
-
-        if (form.existingImage) {
-            setImagePreview(
-                getImageUrl(
-                    form.existingImage
-                )
-            );
-        } else {
-            setImagePreview("");
-        }
-
-        const fileInput =
-            document.getElementById(
-                "supplier-image-input"
-            );
-
-        if (fileInput) {
-            fileInput.value = "";
-        }
-    };
-
-    // ==========================================
     // SAVE SUPPLIER
     // ==========================================
+
     const handleSubmit = async (event) => {
         event.preventDefault();
 
-        const name =
-            form.name.trim();
+        const name = form.name.trim();
 
         if (!name) {
             setFormError(
@@ -325,60 +202,42 @@ function Suppliers() {
             setSaving(true);
             setFormError("");
 
-            const formData =
-                new FormData();
+            // ==================================
+            // NORMAL JSON REQUEST
+            // NO IMAGE / FORMDATA
+            // ==================================
 
-            formData.append(
-                "name",
-                name
-            );
-
-            formData.append(
-                "contact_person",
-                form.contact_person.trim() ||
-                    ""
-            );
-
-            formData.append(
-                "phone",
-                form.phone.trim() ||
-                    ""
-            );
-
-            formData.append(
-                "email",
-                form.email.trim() ||
-                    ""
-            );
-
-            formData.append(
-                "address",
-                form.address.trim() ||
-                    ""
-            );
-
-            if (form.imageFile) {
-                formData.append(
-                    "image",
-                    form.imageFile
-                );
-            }
+            const supplierData = {
+                name,
+                contact_person:
+                    form.contact_person.trim() || null,
+                phone:
+                    form.phone.trim() || null,
+                email:
+                    form.email.trim() || null,
+                address:
+                    form.address.trim() || null,
+            };
 
             if (editingSupplier) {
+
                 await api.put(
                     `/suppliers/${editingSupplier.id}`,
-                    formData
+                    supplierData
                 );
+
             } else {
+
                 await api.post(
                     "/suppliers",
-                    formData
+                    supplierData
                 );
             }
 
             closeModal();
 
             await loadSuppliers();
+
         } catch (err) {
             console.error(
                 "Failed to save supplier:",
@@ -386,10 +245,10 @@ function Suppliers() {
             );
 
             setFormError(
-                err?.response?.data
-                    ?.message ||
+                err?.response?.data?.message ||
                 "Failed to save supplier."
             );
+
         } finally {
             setSaving(false);
         }
@@ -398,11 +257,9 @@ function Suppliers() {
     // ==========================================
     // DELETE SUPPLIER
     // ==========================================
-    const askDelete = (supplier) => {
-        setSupplierToDelete(
-            supplier
-        );
 
+    const askDelete = (supplier) => {
+        setSupplierToDelete(supplier);
         setConfirmOpen(true);
     };
 
@@ -428,6 +285,7 @@ function Suppliers() {
             setSupplierToDelete(null);
 
             await loadSuppliers();
+
         } catch (err) {
             console.error(
                 "Failed to delete supplier:",
@@ -435,10 +293,10 @@ function Suppliers() {
             );
 
             setError(
-                err?.response?.data
-                    ?.message ||
+                err?.response?.data?.message ||
                 "Failed to delete supplier."
             );
+
         } finally {
             setDeleting(false);
         }
@@ -446,7 +304,9 @@ function Suppliers() {
 
     return (
         <>
-            {/* PAGE HEADER */}
+            {/* =========================================
+                PAGE HEADER
+            ========================================= */}
 
             <div className="page-header">
 
@@ -467,9 +327,7 @@ function Suppliers() {
                     {isAdmin && (
                         <button
                             className="btn btn-primary"
-                            onClick={
-                                openAddModal
-                            }
+                            onClick={openAddModal}
                         >
                             Add Supplier
                         </button>
@@ -480,20 +338,18 @@ function Suppliers() {
             </div>
 
 
-            {/* ERROR */}
+            {/* =========================================
+                ERROR
+            ========================================= */}
 
             {error && (
                 <div
                     className="chip chip-danger"
                     style={{
-                        marginBottom:
-                            "16px",
-                        padding:
-                            "10px 16px",
-                        borderRadius:
-                            "8px",
-                        display:
-                            "block",
+                        marginBottom: "16px",
+                        padding: "10px 16px",
+                        borderRadius: "8px",
+                        display: "block",
                     }}
                 >
                     {error}
@@ -501,21 +357,21 @@ function Suppliers() {
             )}
 
 
-            {/* SEARCH */}
+            {/* =========================================
+                SEARCH
+            ========================================= */}
 
             <div
                 className="card"
                 style={{
-                    marginBottom:
-                        "16px",
+                    marginBottom: "16px",
                 }}
             >
 
                 <div
                     className="card-body"
                     style={{
-                        padding:
-                            "14px 16px",
+                        padding: "14px 16px",
                     }}
                 >
 
@@ -539,7 +395,9 @@ function Suppliers() {
             </div>
 
 
-            {/* SUPPLIER TABLE */}
+            {/* =========================================
+                SUPPLIER TABLE
+            ========================================= */}
 
             <div className="card">
 
@@ -554,17 +412,12 @@ function Suppliers() {
                         <p
                             className="text-muted text-sm"
                             style={{
-                                marginTop:
-                                    "4px",
+                                marginTop: "4px",
                             }}
                         >
-                            {
-                                filteredSuppliers.length
-                            }{" "}
+                            {filteredSuppliers.length}{" "}
                             of{" "}
-                            {
-                                suppliers.length
-                            }{" "}
+                            {suppliers.length}{" "}
                             suppliers
                         </p>
 
@@ -679,63 +532,25 @@ function Suppliers() {
 
                                             <td>
 
-                                                <div
-                                                    style={{
-                                                        display:
-                                                            "flex",
-                                                        alignItems:
-                                                            "center",
-                                                        gap:
-                                                            "12px",
-                                                    }}
-                                                >
+                                                <div>
 
-                                                    {supplier.image ? (
+                                                    <strong>
+                                                        {
+                                                            supplier.name
+                                                        }
+                                                    </strong>
 
-                                                        <img
-                                                            src={getImageUrl(
-                                                                supplier.image
-                                                            )}
-                                                            alt={
-                                                                supplier.name
-                                                            }
-                                                            style={{
-                                                                width:
-                                                                    "42px",
-                                                                height:
-                                                                    "42px",
-                                                                minWidth:
-                                                                    "42px",
-                                                                borderRadius:
-                                                                    "12px",
-                                                                objectFit:
-                                                                    "cover",
-                                                            }}
-                                                        />
-
-                                                    ) : null}
-
-                                                    <div>
-
-                                                        <strong>
-                                                            {
-                                                                supplier.name
-                                                            }
-                                                        </strong>
-
-                                                        <div
-                                                            className="text-muted text-sm"
-                                                            style={{
-                                                                marginTop:
-                                                                    "3px",
-                                                            }}
-                                                        >
-                                                            Supplier #
-                                                            {
-                                                                supplier.id
-                                                            }
-                                                        </div>
-
+                                                    <div
+                                                        className="text-muted text-sm"
+                                                        style={{
+                                                            marginTop:
+                                                                "3px",
+                                                        }}
+                                                    >
+                                                        Supplier #
+                                                        {
+                                                            supplier.id
+                                                        }
                                                     </div>
 
                                                 </div>
@@ -831,8 +646,14 @@ function Suppliers() {
                                                                 )
                                                             }
                                                         >
-                                                        <img src={PencilIcon} alt="Edit" />
+                                                            <img
+                                                                src={
+                                                                    PencilIcon
+                                                                }
+                                                                alt="Edit"
+                                                            />
                                                         </button>
+
 
                                                         <button
                                                             type="button"
@@ -844,7 +665,12 @@ function Suppliers() {
                                                                 )
                                                             }
                                                         >
-                                                        <img src={TrashIcon} alt="Delete" />
+                                                            <img
+                                                                src={
+                                                                    TrashIcon
+                                                                }
+                                                                alt="Delete"
+                                                            />
                                                         </button>
 
                                                     </div>
@@ -868,8 +694,7 @@ function Suppliers() {
 
 
                 {!loading &&
-                    filteredSuppliers.length >
-                        0 && (
+                    filteredSuppliers.length > 0 && (
 
                         <div className="card-footer">
 
@@ -898,7 +723,9 @@ function Suppliers() {
             </div>
 
 
-            {/* ADD / EDIT MODAL */}
+            {/* =========================================
+                ADD / EDIT MODAL
+            ========================================= */}
 
             <Modal
                 open={modalOpen}
@@ -910,23 +737,16 @@ function Suppliers() {
                 onClose={closeModal}
             >
 
-                <form
-                    onSubmit={
-                        handleSubmit
-                    }
-                >
+                <form onSubmit={handleSubmit}>
 
                     {formError && (
 
                         <div
                             className="chip chip-danger"
                             style={{
-                                display:
-                                    "block",
-                                marginBottom:
-                                    "16px",
-                                padding:
-                                    "10px 14px",
+                                display: "block",
+                                marginBottom: "16px",
+                                padding: "10px 14px",
                             }}
                         >
                             {formError}
@@ -936,7 +756,6 @@ function Suppliers() {
 
 
                     <div className="form-grid">
-
 
                         {/* NAME */}
 
@@ -954,12 +773,8 @@ function Suppliers() {
                                 name="name"
                                 className="form-control"
                                 placeholder="e.g. PetNutrition Corp"
-                                value={
-                                    form.name
-                                }
-                                onChange={
-                                    handleChange
-                                }
+                                value={form.name}
+                                onChange={handleChange}
                                 required
                                 autoFocus
                             />
@@ -983,9 +798,7 @@ function Suppliers() {
                                 value={
                                     form.contact_person
                                 }
-                                onChange={
-                                    handleChange
-                                }
+                                onChange={handleChange}
                             />
 
                         </div>
@@ -1004,12 +817,8 @@ function Suppliers() {
                                 name="phone"
                                 className="form-control"
                                 placeholder="e.g. 0917-123-4567"
-                                value={
-                                    form.phone
-                                }
-                                onChange={
-                                    handleChange
-                                }
+                                value={form.phone}
+                                onChange={handleChange}
                             />
 
                         </div>
@@ -1028,23 +837,19 @@ function Suppliers() {
                                 name="email"
                                 className="form-control"
                                 placeholder="supplier@example.com"
-                                value={
-                                    form.email
-                                }
-                                onChange={
-                                    handleChange
-                                }
+                                value={form.email}
+                                onChange={handleChange}
                             />
 
                         </div>
+
 
                         {/* ADDRESS */}
 
                         <div
                             className="form-group"
                             style={{
-                                gridColumn:
-                                    "1 / -1",
+                                gridColumn: "1 / -1",
                             }}
                         >
 
@@ -1057,12 +862,8 @@ function Suppliers() {
                                 className="form-control"
                                 rows="3"
                                 placeholder="Supplier address..."
-                                value={
-                                    form.address
-                                }
-                                onChange={
-                                    handleChange
-                                }
+                                value={form.address}
+                                onChange={handleChange}
                             />
 
                         </div>
@@ -1077,38 +878,24 @@ function Suppliers() {
                         <button
                             type="button"
                             className="btn btn-ghost"
-                            onClick={
-                                closeModal
-                            }
-                            disabled={
-                                saving
-                            }
+                            onClick={closeModal}
+                            disabled={saving}
                         >
                             Cancel
                         </button>
 
+
                         <button
                             type="submit"
                             className="btn btn-primary"
-                            disabled={
-                                saving
-                            }
+                            disabled={saving}
                         >
 
-                            {saving ? (
-
-                                "Saving..."
-
-                            ) : (
-
-                                <>
-
-                                    {editingSupplier
-                                        ? "Save Changes"
-                                        : "Add Supplier"}
-                                </>
-
-                            )}
+                            {saving
+                                ? "Saving..."
+                                : editingSupplier
+                                    ? "Save Changes"
+                                    : "Add Supplier"}
 
                         </button>
 
@@ -1119,7 +906,9 @@ function Suppliers() {
             </Modal>
 
 
-            {/* DELETE CONFIRMATION */}
+            {/* =========================================
+                DELETE CONFIRMATION
+            ========================================= */}
 
             <ConfirmDialog
                 open={confirmOpen}
@@ -1129,15 +918,9 @@ function Suppliers() {
                         ? `Delete "${supplierToDelete.name}"? Products assigned to this supplier may lose their supplier reference.`
                         : "Delete this supplier?"
                 }
-                onCancel={
-                    cancelDelete
-                }
-                onConfirm={
-                    handleDelete
-                }
-                loading={
-                    deleting
-                }
+                onCancel={cancelDelete}
+                onConfirm={handleDelete}
+                loading={deleting}
             />
 
         </>
