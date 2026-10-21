@@ -16,6 +16,7 @@ import Products from "./pages/Products";
 import Categories from "./pages/Categories";
 import Suppliers from "./pages/Suppliers";
 import Inventory from "./pages/Inventory";
+import AuditTrail from "./pages/AuditTrail";
 import POS from "./pages/POS";
 import Credit from "./pages/Credit";
 import Reports from "./pages/Reports";
@@ -103,6 +104,11 @@ function App() {
 
                                         {/* ADMIN ONLY */}
                                         <Route element={<RoleRoute allowedRoles={["admin"]} />}>
+
+                                            <Route
+                                                path="/audit-trail"
+                                                element={<AuditTrail />}
+                                            />
 
                                             <Route
                                                 path="/settings"

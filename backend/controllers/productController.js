@@ -591,9 +591,6 @@ const updateProduct = async (req, res) => {
         }
 
 
-        const oldQuantity =
-            Number(existingProduct[0].quantity);
-
         const oldImage =
             existingProduct[0].image;
 
@@ -653,32 +650,6 @@ const updateProduct = async (req, res) => {
 
         }
 
-
-        // =============================================
-        // VALIDATE QUANTITY
-        // =============================================
-
-        const newQuantity =
-            Number(quantity ?? 0);
-
-
-        if (
-            !Number.isInteger(newQuantity) ||
-            newQuantity < 0
-        ) {
-
-            if (req.file) {
-                deleteImageFile(
-                    `/uploads/products/${req.file.filename}`
-                );
-            }
-
-            return res.status(400).json({
-                success: false,
-                message: "Quantity must be a non-negative whole number"
-            });
-
-        }
 
 
         // =============================================
@@ -786,7 +757,6 @@ const updateProduct = async (req, res) => {
                 name = ?,
                 category_id = ?,
                 brand = ?,
-                quantity = ?,
                 unit = ?,
                 price = ?,
                 cost_price = ?,
@@ -803,7 +773,6 @@ const updateProduct = async (req, res) => {
                 name.trim(),
                 category_id,
                 brand || null,
-                newQuantity,
                 unit || "pcs",
                 price,
                 cost_price ?? 0,
@@ -816,76 +785,6 @@ const updateProduct = async (req, res) => {
                 id
             ]
         );
-
-
-        // =============================================
-        // STOCK IN
-        // =============================================
-
-        if (newQuantity > oldQuantity) {
-
-            await connection.query(
-                `
-                INSERT INTO stock_transactions
-                (
-                    product_id,
-                    transaction_type,
-                    quantity,
-                    quantity_before,
-                    quantity_after,
-                    reason,
-                    reference,
-                    admin_id
-                )
-                VALUES (?, 'stock_in', ?, ?, ?, ?, ?, ?)
-                `,
-                [
-                    id,
-                    newQuantity - oldQuantity,
-                    oldQuantity,
-                    newQuantity,
-                    "Stock increased through product edit",
-                    generateReference("STK"),
-                    req.user.id
-                ]
-            );
-
-        }
-
-
-        // =============================================
-        // STOCK OUT
-        // =============================================
-
-        else if (newQuantity < oldQuantity) {
-
-            await connection.query(
-                `
-                INSERT INTO stock_transactions
-                (
-                    product_id,
-                    transaction_type,
-                    quantity,
-                    quantity_before,
-                    quantity_after,
-                    reason,
-                    reference,
-                    admin_id
-                )
-                VALUES (?, 'stock_out', ?, ?, ?, ?, ?, ?)
-                `,
-                [
-                    id,
-                    oldQuantity - newQuantity,
-                    oldQuantity,
-                    newQuantity,
-                    "Stock decreased through product edit",
-                    generateReference("STK"),
-                    req.user.id
-                ]
-            );
-
-        }
 
 
         // =============================================
