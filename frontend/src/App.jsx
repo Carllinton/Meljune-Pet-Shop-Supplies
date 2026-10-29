@@ -1,3 +1,4 @@
+
 import {
     BrowserRouter,
     Routes,
@@ -12,7 +13,6 @@ import RoleRoute from "./components/RoleRoute";
 import Login from "./pages/Login";
 
 import Dashboard from "./pages/Dashboard";
-import Products from "./pages/Products";
 import Categories from "./pages/Categories";
 import Suppliers from "./pages/Suppliers";
 import Inventory from "./pages/Inventory";
@@ -25,32 +25,22 @@ function App() {
     return (
         <BrowserRouter>
             <Routes>
-
-                {/* =================================================
-                    PUBLIC
-                    ================================================= */}
-
+                {/* PUBLIC */}
                 <Route
                     path="/login"
                     element={<Login />}
                 />
 
-                {/* =================================================
-                    PROTECTED APPLICATION
-                    ================================================= */}
-
+                {/* PROTECTED APPLICATION */}
                 <Route element={<ProtectedRoute />}>
-
                     <Route
                         path="/*"
                         element={
                             <div className="app-layout">
-
                                 <Sidebar />
 
                                 <main className="main-content">
                                     <Routes>
-
                                         <Route
                                             path="/"
                                             element={
@@ -66,9 +56,20 @@ function App() {
                                             element={<Dashboard />}
                                         />
 
+                                        {/* Redirect old Products URL */}
                                         <Route
                                             path="/products"
-                                            element={<Products />}
+                                            element={
+                                                <Navigate
+                                                    to="/inventory"
+                                                    replace
+                                                />
+                                            }
+                                        />
+
+                                        <Route
+                                            path="/inventory"
+                                            element={<Inventory />}
                                         />
 
                                         <Route
@@ -79,11 +80,6 @@ function App() {
                                         <Route
                                             path="/suppliers"
                                             element={<Suppliers />}
-                                        />
-
-                                        <Route
-                                            path="/inventory"
-                                            element={<Inventory />}
                                         />
 
                                         <Route
@@ -102,15 +98,20 @@ function App() {
                                         />
 
                                         {/* ADMIN ONLY */}
-                                        <Route element={<RoleRoute allowedRoles={["admin"]} />}>
-
+                                        <Route
+                                            element={
+                                                <RoleRoute
+                                                    allowedRoles={["admin"]}
+                                                />
+                                            }
+                                        >
                                             <Route
                                                 path="/settings"
                                                 element={<Settings />}
                                             />
-
                                         </Route>
 
+                                        {/* Unknown protected routes */}
                                         <Route
                                             path="*"
                                             element={
@@ -120,20 +121,14 @@ function App() {
                                                 />
                                             }
                                         />
-
                                     </Routes>
                                 </main>
-
                             </div>
                         }
                     />
-
                 </Route>
 
-                {/* =================================================
-                    FALLBACK
-                    ================================================= */}
-
+                {/* FALLBACK */}
                 <Route
                     path="*"
                     element={
@@ -143,7 +138,6 @@ function App() {
                         />
                     }
                 />
-
             </Routes>
         </BrowserRouter>
     );

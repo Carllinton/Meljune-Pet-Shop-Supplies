@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { getUser, logout } from "../services/auth";
@@ -6,7 +7,6 @@ import creditsIcon from "../assets/icons/credits.png";
 import dashboardIcon from "../assets/icons/dashboard.png";
 import inventoryIcon from "../assets/icons/inventory.png";
 import posIcon from "../assets/icons/POS.png";
-import productsIcon from "../assets/icons/products.png";
 import reportIcon from "../assets/icons/report.png";
 import settingsIcon from "../assets/icons/settings.png";
 import suppliersIcon from "../assets/icons/suppliers.png";
@@ -16,6 +16,7 @@ import darkModeLogo from "../assets/logos/log.png";
 function Sidebar() {
     const navigate = useNavigate();
     const user = getUser();
+
     const [isDark, setIsDark] = useState(
         () => document.documentElement.dataset.theme === "dark"
     );
@@ -27,12 +28,6 @@ function Sidebar() {
             name: "Dashboard",
             path: "/dashboard",
             icon: dashboardIcon,
-            roles: ["admin", "cashier"],
-        },
-        {
-            name: "Products",
-            path: "/products",
-            icon: productsIcon,
             roles: ["admin", "cashier"],
         },
         {
@@ -90,12 +85,12 @@ function Sidebar() {
 
     const toggleTheme = () => {
         const nextTheme = isDark ? "light" : "dark";
+
         document.documentElement.dataset.theme = nextTheme;
         localStorage.setItem("pawsstock_theme", nextTheme);
         setIsDark(nextTheme === "dark");
     };
 
-    // Get initials for avatar
     const displayName = user?.full_name || user?.username || "User";
 
     const initials = displayName
@@ -107,16 +102,15 @@ function Sidebar() {
 
     return (
         <aside className="sidebar">
-
-            {/* =================================================
-                LOGO
-                ================================================= */}
-
+            {/* LOGO */}
             <div className="sidebar-header">
-
                 <div className="logo">
-
-                    <img src={isDark ? darkModeLogo : logo} alt="Meljune's Pet Supplies" className="logo-img" style ={{ width: "20%", height: "auto" }}/>
+                    <img
+                        src={isDark ? darkModeLogo : logo}
+                        alt="Meljune's Pet Supplies"
+                        className="logo-img"
+                        style={{ width: "20%", height: "auto" }}
+                    />
 
                     <div className="logo-text">
                         <div className="logo-name">
@@ -132,24 +126,23 @@ function Sidebar() {
                         type="button"
                         className="theme-toggle"
                         onClick={toggleTheme}
-                        aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
+                        aria-label={`Switch to ${
+                            isDark ? "light" : "dark"
+                        } mode`}
                         aria-pressed={isDark}
-                        title={`Switch to ${isDark ? "light" : "dark"} mode`}
+                        title={`Switch to ${
+                            isDark ? "light" : "dark"
+                        } mode`}
                     >
-                        <span aria-hidden="true">{isDark ? "☀" : "☾"}</span>
+                        <span aria-hidden="true">
+                            {isDark ? "☀" : "☾"}
+                        </span>
                     </button>
-
                 </div>
-
             </div>
 
-
-            {/* =================================================
-                NAVIGATION
-                ================================================= */}
-
+            {/* NAVIGATION */}
             <nav className="sidebar-nav">
-
                 <div className="nav-section-label">
                     MENU
                 </div>
@@ -169,35 +162,28 @@ function Sidebar() {
                             alt=""
                             aria-hidden="true"
                         />
-                        <span>
-                            {item.name}
-                        </span>
+
+                        <span>{item.name}</span>
                     </NavLink>
                 ))}
-
             </nav>
 
-
-            {/* =================================================
-                USER FOOTER
-                ================================================= */}
-
+            {/* USER FOOTER */}
             <div className="sidebar-footer">
-
                 <div className="admin-avatar">
                     {initials}
                 </div>
 
                 <div className="admin-details">
-
                     <span className="admin-name">
                         {displayName}
                     </span>
 
                     <span className="admin-role">
-                        {isAdmin ? "Administrator" : "Cashier / Staff"}
+                        {isAdmin
+                            ? "Administrator"
+                            : "Cashier / Staff"}
                     </span>
-
                 </div>
 
                 <button
@@ -212,9 +198,7 @@ function Sidebar() {
                         className="logout-icon"
                     />
                 </button>
-
             </div>
-
         </aside>
     );
 }
