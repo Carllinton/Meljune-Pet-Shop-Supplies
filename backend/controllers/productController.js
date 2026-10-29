@@ -445,8 +445,17 @@ const updateProduct = async (req, res) => {
             });
         }
 
-        const oldQuantity = Number(existingProduct[0].quantity);
-        const oldImage = existingProduct[0].image;
+
+        const oldQuantity =
+            Number(existingProduct[0].quantity);
+
+        const oldImage =
+            existingProduct[0].image;
+
+
+        // =============================================
+        // VALIDATION
+        // =============================================
 
         if (!name || !name.trim()) {
             if (req.file) {
@@ -481,18 +490,37 @@ const updateProduct = async (req, res) => {
             });
         }
 
-        const newQuantity = Number(quantity ?? 0);
 
-        if (!Number.isInteger(newQuantity) || newQuantity < 0) {
+        // =============================================
+        // VALIDATE QUANTITY
+        // =============================================
+
+        const newQuantity =
+            Number(quantity ?? 0);
+
+
+        if (
+            !Number.isInteger(newQuantity) ||
+            newQuantity < 0
+        ) {
+
             if (req.file) {
-                deleteImageFile(`/uploads/products/${req.file.filename}`);
+                deleteImageFile(
+                    `/uploads/products/${req.file.filename}`
+                );
             }
 
             return res.status(400).json({
                 success: false,
                 message: "Quantity must be a non-negative whole number"
             });
+
         }
+
+
+        // =============================================
+        // CHECK CATEGORY
+        // =============================================
 
         const [category] = await connection.query(
             "SELECT id FROM categories WHERE id = ?",
@@ -542,7 +570,6 @@ const updateProduct = async (req, res) => {
                 name = ?,
                 category_id = ?,
                 brand = ?,
-                quantity = ?,
                 unit = ?,
                 price = ?,
                 cost_price = ?,
@@ -553,27 +580,37 @@ const updateProduct = async (req, res) => {
                 description = ?,
                 status = ?
             WHERE id = ?
-        `, [
-            existingProduct[0].product_code,
-            name.trim(),
-            category_id,
-            brand || null,
-            newQuantity,
-            unit || "pcs",
-            price,
-            cost_price ?? 0,
-            low_stock_threshold ?? 10,
-            expiration_date || null,
-            supplier_id || null,
-            newImagePath,
-            description || null,
-            status || "active",
-            id
-        ]);
+            `,
+            [
+                existingProduct[0].product_code,
+                name.trim(),
+                category_id,
+                brand || null,
+                newQuantity,
+                unit || "pcs",
+                price,
+                cost_price ?? 0,
+                low_stock_threshold ?? 10,
+                expiration_date || null,
+                supplier_id || null,
+                newImagePath,
+                description || null,
+                status || "active",
+                id
+            ]
+        );
+
+
+        // =============================================
+        // STOCK IN
+        // =============================================
 
         if (newQuantity > oldQuantity) {
-            await connection.query(`
-                INSERT INTO stock_transactions (
+
+            await connection.query(
+                `
+                INSERT INTO stock_transactions
+                (
                     product_id,
                     transaction_type,
                     quantity,
@@ -584,18 +621,31 @@ const updateProduct = async (req, res) => {
                     admin_id
                 )
                 VALUES (?, 'stock_in', ?, ?, ?, ?, ?, ?)
-            `, [
-                id,
-                newQuantity - oldQuantity,
-                oldQuantity,
-                newQuantity,
-                "Stock increased through product edit",
-                generateReference("STK"),
-                req.user.id
-            ]);
-        } else if (newQuantity < oldQuantity) {
-            await connection.query(`
-                INSERT INTO stock_transactions (
+                `,
+                [
+                    id,
+                    newQuantity - oldQuantity,
+                    oldQuantity,
+                    newQuantity,
+                    "Stock increased through product edit",
+                    generateReference("STK"),
+                    req.user.id
+                ]
+            );
+
+        }
+
+
+        // =============================================
+        // STOCK OUT
+        // =============================================
+
+        else if (newQuantity < oldQuantity) {
+
+            await connection.query(
+                `
+                INSERT INTO stock_transactions
+                (
                     product_id,
                     transaction_type,
                     quantity,
@@ -606,16 +656,24 @@ const updateProduct = async (req, res) => {
                     admin_id
                 )
                 VALUES (?, 'stock_out', ?, ?, ?, ?, ?, ?)
-            `, [
-                id,
-                oldQuantity - newQuantity,
-                oldQuantity,
-                newQuantity,
-                "Stock decreased through product edit",
-                generateReference("STK"),
-                req.user.id
-            ]);
+                `,
+                [
+                    id,
+                    oldQuantity - newQuantity,
+                    oldQuantity,
+                    newQuantity,
+                    "Stock decreased through product edit",
+                    generateReference("STK"),
+                    req.user.id
+                ]
+            );
+
         }
+
+
+        // =============================================
+        // COMMIT
+        // =============================================
 
         await connection.commit();
         transactionStarted = false;

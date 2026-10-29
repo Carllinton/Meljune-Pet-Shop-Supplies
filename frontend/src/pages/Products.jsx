@@ -53,6 +53,7 @@ function Products() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const isEditing = editingId !== null;
   const [form, setForm] = useState(EMPTY_FORM);
 
   const [imagePreview, setImagePreview] = useState("");
@@ -481,7 +482,7 @@ function Products() {
         throw new Error("Please enter a valid selling price.");
       }
 
-      if (Number(form.quantity) < 0) {
+      if (!isEditing && Number(form.quantity) < 0) {
         throw new Error("Quantity cannot be negative.");
       }
 
@@ -506,10 +507,13 @@ function Products() {
         form.brand.trim()
       );
 
-      formData.append(
+      if (!isEditing) {
+        formData.append(
         "quantity",
         String(Number(form.quantity))
       );
+      }
+      
 
       formData.append(
         "unit",
@@ -715,6 +719,8 @@ function Products() {
 
     return "In Stock";
   };
+
+  const isInactive = (p) => p.status === "inactive";
 
   // =============================================
   // DATE
@@ -1134,7 +1140,7 @@ function Products() {
                         {/* STATUS */}
 
                         <td>
-
+                          
                           <span
                             className={`chip ${getStockClass(
                               product
@@ -1366,11 +1372,11 @@ function Products() {
                   form.quantity
                 }
                 onChange={handleChange}
+                disabled={isEditing}
               />
 
               <div className="form-hint">
-                Stock changes are
-                automatically recorded.
+                Quantity can only be changed in Inventory.
               </div>
 
             </div>

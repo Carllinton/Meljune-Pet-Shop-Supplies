@@ -72,6 +72,12 @@ function Sidebar() {
             icon: settingsIcon,
             roles: ["admin"],
         },
+        {
+            name: "Audit Trail",
+            path: "/audit-trail",
+            icon: reportIcon,
+            roles: ["admin"]
+        }
     ];
 
     const visibleItems = menuItems.filter((item) =>
